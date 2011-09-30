@@ -1,0 +1,24 @@
+{
+  "author": "Trevor Burnham (http://trevorburnham.com)",
+  "name": "snockets",
+  "description": "Sprockets-esque script concatenation for Node",
+  "version": "1.0.0",
+  "homepage": "http://github.com/TrevorBurnham/snockets",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/TrevorBurnham/snockets.git"
+  },
+  "main": "lib/snockets.js",
+  "dependencies": {
+    "coffee-script": ">=1.1.2",
+    "dep-graph": "1.0.0",
+    "mime": "1.2.2",
+    "uglify-js": "1.0.7",
+    "underscore": "1.1.7"
+  },
+  "devDependencies": {
+    "coffee-script": "1.1.2",
+    "nodeunit": "0.5.4",
+    "watch-tree": "0.1.1"
+  }
+}
