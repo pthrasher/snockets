@@ -23,14 +23,11 @@ module.exports = class Snockets
     flags ?= {}
     flags.async ?= @options.async
 
-    @readFile filePath, flags, (err) =>
-      return callback err if err
-      @compileFile filePath
-      @updateDirectives filePath, flags, (err) =>
-        return callback err if err
-
-        if callback then callback null, @depGraph else return @depGraph
-    @depGraph unless callback
+    @updateDirectives filePath, flags, (err) =>
+      if err
+        if callback then callback err else throw err
+      callback? null, @depGraph
+      @depGraph
 
   getCompiledChain: (filePath, flags, callback) ->
     if typeof flags is 'function'
@@ -38,7 +35,24 @@ module.exports = class Snockets
     flags ?= {}
     flags.async ?= @options.async
 
-    # TODO
+    @updateDirectives filePath, flags, (err) =>
+      if err
+        if callback then callback err else throw err
+      try
+        chain = @depGraph.getChain filePath
+      catch e
+        if callback then callback e else throw e
+
+      compiledChain = for link in chain.concat filePath
+        pair = {}
+        if @compileFile link
+          pair[stripExt(link) + '.js'] = @cache[link].js.toString 'utf8'
+        else
+          pair[link] = @cache[link].js.toString 'utf8'
+        pair
+
+      callback? null, compiledChain
+      compiledChain
 
   getConcatenation: (filePath, flags, callback) ->
     if typeof flags is 'function'
@@ -50,21 +64,84 @@ module.exports = class Snockets
 
   # ## Internal methods
 
+  # Interprets the directives from the given file to update `@depGraph`.
+  updateDirectives: (filePath, flags, excludes..., callback) ->
+    return callback() if filePath in excludes
+    excludes.push filePath
+
+    depList = []
+    q = new HoldingQueue
+      task: (depPath, next) =>
+        if depPath is filePath
+          err = new Error("Script tries to require itself: #{filePath}")
+          return callback err
+        depList.push depPath
+        @updateDirectives depPath, flags, excludes..., (err) ->
+          return callback err if err
+          next()
+      onComplete: =>
+        @depGraph.map[filePath] = depList
+        callback()
+
+    require = (relPath) =>
+      q.waitFor relName = stripExt relPath
+      if relName.match EXPLICIT_PATH
+        depPath = relName + '.js'
+        q.perform relName, depPath
+      else
+        depName = path.join path.dirname(filePath), relName
+        @findMatchingFile depName, flags, (err, depPath) ->
+          return callback err if err
+          q.perform relName, depPath
+
+    requireTree = (relPath) =>
+      q.waitFor relPath
+      dirName = path.join path.dirname((filePath)), relPath
+      @readdir @absPath(dirName), flags, (err, items) =>
+        return callback err if err
+        q.unwaitFor relPath
+        for item in items
+          itemPath = path.join(dirName, item)
+          continue if @absPath(itemPath) is @absPath(filePath)
+          q.waitFor itemPath
+          do (itemPath) =>
+            @stat @absPath(itemPath), flags, (err, stats) =>
+              return callback err if err
+              if stats.isFile()
+                if path.extname(itemPath) in jsExts()
+                  q.perform itemPath, itemPath
+                else
+                  return q.unwaitFor itemPath
+              else if stats.isDirectory()
+                requireTree itemPath
+
+    @readFile filePath, flags, (err) =>
+      return callback err if err
+      for directive in parseDirectives(@cache[filePath].data.toString 'utf8')
+        words = directive.replace(/['"]/g, '').split /\s+/
+        [command, relPaths...] = words
+
+        switch command
+          when 'require'
+            require relPath for relPath in relPaths
+          when 'require_tree'
+            requireTree relPath for relPath in relPaths
+
+      q.finalize()
+
   # Searches for a file with the given name (no extension, e.g. `'foo/bar'`)
   findMatchingFile: (filename, flags, callback) ->
-    tryFiles = (filePaths, required) =>
+    tryFiles = (filePaths) =>
       for filePath in filePaths
-        if stripExt(@absPath filePath) is filename
+        if stripExt(@absPath filePath) is @absPath(filename)
           callback null, filePath
           return true
-      if required
-        err = new Error("File not found: '#{filename}'")
-        callback err
 
-    return if tryFiles @cache, false
-    @readdir path.dirname(filename), flags, (err, files) =>
+    return if tryFiles @cache
+    @readdir path.dirname(@absPath filename), flags, (err, files) =>
       return callback err if err
-      tryFiles files, true
+      return if tryFiles files
+      callback new Error("File not found: '#{filename}'")
 
   # Wrapper around fs.readdir or fs.readdirSync, depending on flags.async.
   readdir: (dir, flags, callback) ->
@@ -92,90 +169,29 @@ module.exports = class Snockets
   readFile: (filePath, flags, callback) ->
     @stat filePath, flags, (err, stats) =>
       return callback err if err
+      return callback() if timeEq @cache[filePath]?.mtime, stats.mtime
       if flags.async
-          return callback() if timeEq @cache[filePath]?.mtime, stats.mtime
           fs.readFile @absPath(filePath), (err, data) =>
             return callback err if err
             @cache[filePath] = {mtime: stats.mtime, data}
             callback()
       else
-        data = fs.readFileSync @absPath(filePath)
-        @cache[filePath] = {mtime: stats.mtime, data}
-        callback()
-
-  # Interprets the directives from the given file to update `@depGraph`.
-  updateDirectives: (filePath, flags, excludes..., callback) ->
-    return callback() if filePath in excludes
-    excludes.push filePath
-
-    depList = []
-    q = new HoldingQueue
-      task: (depPath, next) =>
-        if depPath is filePath
-          err = new Error("Script tries to require itself: #{filePath}")
-          return callback err
-        depList.push depPath
-        @readFile depPath, flags, (err) =>
-          return callback err if err
-          @updateDirectives depPath, flags, excludes..., (err) ->
-            return callback err if err
-            next()
-      onComplete: =>
-        @depGraph.map[filePath] = depList
-        callback()
-
-    require = (relPath) =>
-      q.waitFor relName = stripExt relPath
-      if relName.match EXPLICIT_PATH
-        depPath = relName + '.js'
-        q.perform relName, depPath
-      else
-        depName = path.join path.dirname(filePath), relName
-        @findMatchingFile @absPath(depName), flags, (err, depPath) ->
-          return callback err if err
-          q.perform relName, depPath
-
-    requireTree = (relPath) =>
-      q.waitFor relPath
-      dirName = path.join path.dirname((filePath)), relPath
-      @readdir @absPath(dirName), flags, (err, items) =>
-        return callback err if err
-        q.unwaitFor relPath
-        for item in items
-          itemPath = path.join(dirName, item)
-          continue if @absPath(itemPath) is @absPath(filePath)
-          q.waitFor itemPath
-          do (itemPath) =>
-            @stat @absPath(itemPath), flags, (err, stats) =>
-              return callback err if err
-              if stats.isFile()
-                if path.extname(itemPath) in jsExts()
-                  q.perform itemPath, itemPath
-                else
-                  return q.unwaitFor itemPath
-              else if stats.isDirectory()
-                requireTree itemPath
-
-    for directive in parseDirectives(@cache[filePath].data.toString 'utf8')
-      words = directive.replace(/['"]/g, '').split /\s+/
-      [command, relPaths...] = words
-
-      switch command
-        when 'require'
-          require relPath for relPath in relPaths
-        when 'require_tree'
-          requireTree relPath for relPath in relPaths
-
-    q.finalize()
+        try
+          data = fs.readFileSync @absPath(filePath)
+          @cache[filePath] = {mtime: stats.mtime, data}
+          callback()
+        catch e
+          callback e
 
   compileFile: (filePath) ->
     if (ext = path.extname filePath) is '.js'
       @cache[filePath].js = @cache[filePath].data
+      false
     else
       src = @cache[filePath].data.toString 'utf8'
       js = compilers[ext[1..]].compileSync @absPath(filePath), src
       @cache[filePath].js = new Buffer(js)
-    return
+      true
 
   absPath: (relPath) ->
     if relPath.match EXPLICIT_PATH

@@ -36,6 +36,13 @@ testSuite =
       test.deepEqual chain, ['branch/edge.coffee', 'branch/periphery.js']
       test.done()
 
+  'getCompiledChain returns correct .js filenames and code': (test) ->
+    snockets.getCompiledChain 'z.coffee', (err, chain) ->
+      throw err if err
+      console.log chain
+      # test.deepEqual snockets.depGraph.getChain('z.coffee'), ['x.coffee', 'y.js']
+      test.done()
+
 # Every test runs both synchronously and asynchronously.
 for name, func of testSuite
   do (func) ->
