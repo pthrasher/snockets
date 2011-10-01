@@ -36,6 +36,13 @@ testSuite =
       test.deepEqual chain, ['branch/edge.coffee', 'branch/periphery.js']
       test.done()
 
+  'require_tree works for nested directories': (test) ->
+    snockets.scan 'fellowship.js', (err) ->
+      throw err if err
+      chain = snockets.depGraph.getChain('fellowship.js')
+      test.deepEqual chain, ['middleEarth/legolas.coffee', 'middleEarth/shire/bilbo.js', 'middleEarth/shire/frodo.coffee']
+      test.done()
+
   'getCompiledChain returns correct .js filenames and code': (test) ->
     snockets.getCompiledChain 'z.coffee', (err, chain) ->
       throw err if err
