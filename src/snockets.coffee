@@ -60,7 +60,23 @@ module.exports = class Snockets
     flags ?= {}
     flags.async ?= @options.async
 
-    # TODO
+    @updateDirectives filePath, flags, (err) =>
+      if err
+        if callback then callback err else throw err
+      try
+        chain = @depGraph.getChain filePath
+      catch e
+        if callback then callback e else throw e
+
+      concatenation = (for link in chain.concat filePath
+        @compileFile link
+        @cache[link].js.toString 'utf8'
+      ).join '\n'
+
+      if flags.minify then concatenation = minify concatenation
+
+      callback? null, concatenation
+      concatenation
 
   # ## Internal methods
 
@@ -256,6 +272,14 @@ stripExt = (filePath) ->
 
 jsExts = ->
   (".#{ext}" for ext of compilers).concat '.js'
+
+minify = (js) ->
+  jsp = uglify.parser
+  pro = uglify.uglify
+  ast = jsp.parse js
+  ast = pro.ast_mangle ast
+  ast = pro.ast_squeeze ast
+  pro.gen_code ast
 
 timeEq = (date1, date2) ->
   date1? and date2? and date1.getTime() is date2.getTime()

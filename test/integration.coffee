@@ -39,8 +39,29 @@ testSuite =
   'getCompiledChain returns correct .js filenames and code': (test) ->
     snockets.getCompiledChain 'z.coffee', (err, chain) ->
       throw err if err
-      console.log chain
-      # test.deepEqual snockets.depGraph.getChain('z.coffee'), ['x.coffee', 'y.js']
+      test.deepEqual chain, [
+        {'x.js': '(function() {\n  "Double rainbow\\nSO INTENSE";\n}).call(this);\n'}
+        {'y.js': '//= require x'}
+        {'z.js': '(function() {\n\n}).call(this);\n'}
+      ]
+      test.done()
+
+  'getConcatenation returns correct raw JS code': (test) ->
+    snockets.getConcatenation 'z.coffee', (err, js) ->
+      throw err if err
+      test.equal js, """
+        (function() {\n  "Double rainbow\\nSO INTENSE";\n}).call(this);\n
+        //= require x
+        (function() {\n\n}).call(this);\n
+      """
+      test.done()
+
+  'getConcatenation returns correct minified JS code': (test) ->
+    snockets.getConcatenation 'z.coffee', minify: true, (err, js) ->
+      throw err if err
+      test.equal js, """
+        (function(){"Double rainbow\\nSO INTENSE"}).call(this),function(){}.call(this)
+      """
       test.done()
 
 # Every test runs both synchronously and asynchronously.
