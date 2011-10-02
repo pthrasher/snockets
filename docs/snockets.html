@@ -38,12 +38,13 @@
         <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="nx">callback</span> <span class="nx">e</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">e</span>
 
       <span class="nv">compiledChain = </span><span class="k">for</span> <span class="nx">link</span> <span class="k">in</span> <span class="nx">chain</span><span class="p">.</span><span class="nx">concat</span> <span class="nx">filePath</span>
-        <span class="nv">pair = </span><span class="p">{}</span>
+        <span class="nv">o = </span><span class="p">{}</span>
         <span class="k">if</span> <span class="nx">@compileFile</span> <span class="nx">link</span>
-          <span class="nx">pair</span><span class="p">[</span><span class="nx">stripExt</span><span class="p">(</span><span class="nx">link</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;.js&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nx">@cache</span><span class="p">[</span><span class="nx">link</span><span class="p">].</span><span class="nx">js</span><span class="p">.</span><span class="nx">toString</span> <span class="s1">&#39;utf8&#39;</span>
+          <span class="nv">o.filename = </span><span class="nx">stripExt</span><span class="p">(</span><span class="nx">link</span><span class="p">)</span> <span class="o">+</span> <span class="s1">&#39;.js&#39;</span>
         <span class="k">else</span>
-          <span class="nx">pair</span><span class="p">[</span><span class="nx">link</span><span class="p">]</span> <span class="o">=</span> <span class="nx">@cache</span><span class="p">[</span><span class="nx">link</span><span class="p">].</span><span class="nx">js</span><span class="p">.</span><span class="nx">toString</span> <span class="s1">&#39;utf8&#39;</span>
-        <span class="nx">pair</span>
+          <span class="nv">o.filename = </span><span class="nx">link</span>
+        <span class="nv">o.js = </span><span class="nx">@cache</span><span class="p">[</span><span class="nx">link</span><span class="p">].</span><span class="nx">js</span><span class="p">.</span><span class="nx">toString</span> <span class="s1">&#39;utf8&#39;</span>
+        <span class="nx">o</span>
 
       <span class="nx">callback</span><span class="o">?</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">compiledChain</span>
       <span class="nx">compiledChain</span>

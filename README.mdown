@@ -35,7 +35,7 @@ You can get a list of compiled JavaScripts corresponding to the dependency chain
 
     snockets.getCompiledChain 'dir/foo.coffee', (err, jsList) -> ...
 
-The result is in the format `[{"dependency1.js": "// code"}, ..., {"dir/foo.js": "// code"}]`. Note that those JavaScript files are not actually created by `getCompiledChain`.
+The result is in the format `[{filename: "dependency1.js", js: "// code"}, ...]`. Note that those JavaScript files are not actually created by `getCompiledChain`.
 
 Snockets can also provide a single compiled, concatenated file (optionally run through [UglifyJS](https://github.com/mishoo/UglifyJS) if the `minify` option is passed in):
 

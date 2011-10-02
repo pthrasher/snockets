@@ -47,9 +47,9 @@ testSuite =
     snockets.getCompiledChain 'z.coffee', (err, chain) ->
       throw err if err
       test.deepEqual chain, [
-        {'x.js': '(function() {\n  "Double rainbow\\nSO INTENSE";\n}).call(this);\n'}
-        {'y.js': '//= require x'}
-        {'z.js': '(function() {\n\n}).call(this);\n'}
+        {filename: 'x.js', js: '(function() {\n  "Double rainbow\\nSO INTENSE";\n}).call(this);\n'}
+        {filename: 'y.js', js: '//= require x'}
+        {filename: 'z.js', js: '(function() {\n\n}).call(this);\n'}
       ]
       test.done()
 

@@ -44,12 +44,13 @@ module.exports = class Snockets
         if callback then callback e else throw e
 
       compiledChain = for link in chain.concat filePath
-        pair = {}
+        o = {}
         if @compileFile link
-          pair[stripExt(link) + '.js'] = @cache[link].js.toString 'utf8'
+          o.filename = stripExt(link) + '.js'
         else
-          pair[link] = @cache[link].js.toString 'utf8'
-        pair
+          o.filename = link
+        o.js = @cache[link].js.toString 'utf8'
+        o
 
       callback? null, compiledChain
       compiledChain
