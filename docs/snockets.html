@@ -139,7 +139,7 @@
           <span class="nx">callback</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">filePath</span>
           <span class="k">return</span> <span class="kc">true</span>
 
-    <span class="k">return</span> <span class="k">if</span> <span class="nx">tryFiles</span> <span class="nx">@cache</span>
+    <span class="k">return</span> <span class="k">if</span> <span class="nx">tryFiles</span> <span class="nx">_</span><span class="p">.</span><span class="nx">keys</span> <span class="nx">@cache</span>
     <span class="nx">@readdir</span> <span class="nx">path</span><span class="p">.</span><span class="nx">dirname</span><span class="p">(</span><span class="nx">@absPath</span> <span class="nx">filename</span><span class="p">),</span> <span class="nx">flags</span><span class="p">,</span> <span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">files</span><span class="p">)</span> <span class="o">=&gt;</span>
       <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
       <span class="k">return</span> <span class="k">if</span> <span class="nx">tryFiles</span> <span class="nx">files</span>
@@ -193,8 +193,8 @@
       <span class="nx">path</span><span class="p">.</span><span class="nx">join</span> <span class="nx">process</span><span class="p">.</span><span class="nx">cwd</span><span class="p">(),</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">src</span><span class="p">,</span> <span class="nx">relPath</span></pre></div>             </td>           </tr>                               <tr id="section-9">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-9">&#182;</a>               </div>               <h2>Compilers</h2>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">module.exports.compilers = compilers =</span>
   <span class="nv">coffee:</span>
     <span class="nv">match: </span><span class="sr">/\.js$/</span>
-    <span class="nv">compileSync: </span><span class="nf">(filePath, source) -&gt;</span>
-      <span class="nx">CoffeeScript</span><span class="p">.</span><span class="nx">compile</span> <span class="nx">source</span><span class="p">,</span> <span class="p">{</span><span class="nv">filename: </span><span class="nx">filePath</span><span class="p">}</span></pre></div>             </td>           </tr>                               <tr id="section-10">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-10">&#182;</a>               </div>               <h2>Regexes</h2>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">BEFORE_DOT = </span><span class="sr">/([^.]*)(\..*)?$/</span>
+    <span class="nv">compileSync: </span><span class="nf">(sourcePath, source) -&gt;</span>
+      <span class="nx">CoffeeScript</span><span class="p">.</span><span class="nx">compile</span> <span class="nx">source</span><span class="p">,</span> <span class="p">{</span><span class="nv">filename: </span><span class="nx">sourcePath</span><span class="p">}</span></pre></div>             </td>           </tr>                               <tr id="section-10">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-10">&#182;</a>               </div>               <h2>Regexes</h2>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">BEFORE_DOT = </span><span class="sr">/([^.]*)(\..*)?$/</span>
 
 <span class="nv">EXPLICIT_PATH = </span><span class="sr">/^\/|^\.|:/</span>
 

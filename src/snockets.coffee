@@ -153,7 +153,7 @@ module.exports = class Snockets
           callback null, filePath
           return true
 
-    return if tryFiles @cache
+    return if tryFiles _.keys @cache
     @readdir path.dirname(@absPath filename), flags, (err, files) =>
       return callback err if err
       return if tryFiles files
@@ -220,8 +220,8 @@ module.exports = class Snockets
 module.exports.compilers = compilers =
   coffee:
     match: /\.js$/
-    compileSync: (filePath, source) ->
-      CoffeeScript.compile source, {filename: filePath}
+    compileSync: (sourcePath, source) ->
+      CoffeeScript.compile source, {filename: sourcePath}
 
 # ## Regexes
 
