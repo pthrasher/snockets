@@ -16,6 +16,12 @@ testSuite =
       test.deepEqual snockets.depGraph.getChain('a.coffee'), ['b.js']
       test.done()
 
+  'Dependencies with multiple extensions are accepted': (test) ->
+    snockets.scan 'testing.js', (err) ->
+      throw err if err
+      test.deepEqual snockets.depGraph.getChain('testing.js'), ['1.2.3.coffee']
+      test.done()
+
   'Chained dependencies are correctly recorded': (test) ->
     snockets.scan 'z.coffee', (err) ->
       throw err if err

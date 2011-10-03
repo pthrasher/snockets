@@ -226,8 +226,6 @@ module.exports.compilers = compilers =
 
 # ## Regexes
 
-BEFORE_DOT = /([^.]*)(\..*)?$/
-
 EXPLICIT_PATH = /^\/|^\.|:/
 
 HEADER = ///
@@ -269,7 +267,10 @@ parseDirectives = (code) ->
   match[1] while match = DIRECTIVE.exec header
 
 stripExt = (filePath) ->
-  BEFORE_DOT.exec(filePath)[1]
+  if path.extname(filePath) in jsExts()
+    filePath[0...filePath.lastIndexOf('.')]
+  else
+    filePath
 
 jsExts = ->
   (".#{ext}" for ext of compilers).concat '.js'
