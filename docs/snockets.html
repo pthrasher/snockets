@@ -60,13 +60,12 @@
         <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">err</span>
       <span class="k">try</span>
         <span class="nv">chain = </span><span class="nx">@depGraph</span><span class="p">.</span><span class="nx">getChain</span> <span class="nx">filePath</span>
+        <span class="nv">concatenation = </span><span class="p">(</span><span class="k">for</span> <span class="nx">link</span> <span class="k">in</span> <span class="nx">chain</span><span class="p">.</span><span class="nx">concat</span> <span class="nx">filePath</span>
+          <span class="nx">@compileFile</span> <span class="nx">link</span>
+          <span class="nx">@cache</span><span class="p">[</span><span class="nx">link</span><span class="p">].</span><span class="nx">js</span><span class="p">.</span><span class="nx">toString</span> <span class="s1">&#39;utf8&#39;</span>
+        <span class="p">).</span><span class="nx">join</span> <span class="s1">&#39;\n&#39;</span>
       <span class="k">catch</span> <span class="nx">e</span>
         <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="nx">callback</span> <span class="nx">e</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">e</span>
-
-      <span class="nv">concatenation = </span><span class="p">(</span><span class="k">for</span> <span class="nx">link</span> <span class="k">in</span> <span class="nx">chain</span><span class="p">.</span><span class="nx">concat</span> <span class="nx">filePath</span>
-        <span class="nx">@compileFile</span> <span class="nx">link</span>
-        <span class="nx">@cache</span><span class="p">[</span><span class="nx">link</span><span class="p">].</span><span class="nx">js</span><span class="p">.</span><span class="nx">toString</span> <span class="s1">&#39;utf8&#39;</span>
-      <span class="p">).</span><span class="nx">join</span> <span class="s1">&#39;\n&#39;</span>
 
       <span class="k">if</span> <span class="nx">flags</span><span class="p">.</span><span class="nx">minify</span> <span class="k">then</span> <span class="nv">concatenation = </span><span class="nx">minify</span> <span class="nx">concatenation</span>
 
@@ -143,7 +142,9 @@
     <span class="k">return</span> <span class="k">if</span> <span class="nx">tryFiles</span> <span class="nx">_</span><span class="p">.</span><span class="nx">keys</span> <span class="nx">@cache</span>
     <span class="nx">@readdir</span> <span class="nx">path</span><span class="p">.</span><span class="nx">dirname</span><span class="p">(</span><span class="nx">@absPath</span> <span class="nx">filename</span><span class="p">),</span> <span class="nx">flags</span><span class="p">,</span> <span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">files</span><span class="p">)</span> <span class="o">=&gt;</span>
       <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
-      <span class="k">return</span> <span class="k">if</span> <span class="nx">tryFiles</span> <span class="nx">files</span>
+      <span class="k">return</span> <span class="k">if</span> <span class="nx">tryFiles</span> <span class="p">(</span><span class="k">for</span> <span class="nx">file</span> <span class="k">in</span> <span class="nx">files</span>
+        <span class="nx">path</span><span class="p">.</span><span class="nx">join</span> <span class="nx">path</span><span class="p">.</span><span class="nx">dirname</span><span class="p">(</span><span class="nx">filename</span><span class="p">),</span> <span class="nx">file</span>
+      <span class="p">)</span>
       <span class="nx">callback</span> <span class="k">new</span> <span class="nb">Error</span><span class="p">(</span><span class="s2">&quot;File not found: &#39;#{filename}&#39;&quot;</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-6">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-6">&#182;</a>               </div>               <p>Wrapper around fs.readdir or fs.readdirSync, depending on flags.async.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">readdir: </span><span class="nf">(dir, flags, callback) -&gt;</span>
     <span class="k">if</span> <span class="nx">flags</span><span class="p">.</span><span class="nx">async</span>
       <span class="nx">fs</span><span class="p">.</span><span class="nx">readdir</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">dir</span><span class="p">),</span> <span class="nx">callback</span>

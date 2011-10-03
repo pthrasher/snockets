@@ -22,6 +22,12 @@ testSuite =
       test.deepEqual snockets.depGraph.getChain('testing.js'), ['1.2.3.coffee']
       test.done()
 
+  'Dependencies can have subdirectory-relative paths': (test) ->
+    snockets.scan 'song/loveAndMarriage.js', (err) ->
+      throw err if err
+      test.deepEqual snockets.depGraph.getChain('song/loveAndMarriage.js'), ['song/horseAndCarriage.coffee']
+      test.done()
+
   'Chained dependencies are correctly recorded': (test) ->
     snockets.scan 'z.coffee', (err) ->
       throw err if err

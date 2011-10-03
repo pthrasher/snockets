@@ -66,13 +66,12 @@ module.exports = class Snockets
         if callback then callback err else throw err
       try
         chain = @depGraph.getChain filePath
+        concatenation = (for link in chain.concat filePath
+          @compileFile link
+          @cache[link].js.toString 'utf8'
+        ).join '\n'
       catch e
         if callback then callback e else throw e
-
-      concatenation = (for link in chain.concat filePath
-        @compileFile link
-        @cache[link].js.toString 'utf8'
-      ).join '\n'
 
       if flags.minify then concatenation = minify concatenation
 
@@ -157,7 +156,9 @@ module.exports = class Snockets
     return if tryFiles _.keys @cache
     @readdir path.dirname(@absPath filename), flags, (err, files) =>
       return callback err if err
-      return if tryFiles files
+      return if tryFiles (for file in files
+        path.join path.dirname(filename), file
+      )
       callback new Error("File not found: '#{filename}'")
 
   # Wrapper around fs.readdir or fs.readdirSync, depending on flags.async.
