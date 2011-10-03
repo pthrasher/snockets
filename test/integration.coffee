@@ -45,7 +45,7 @@ testSuite =
     snockets.scan 'branch/center.coffee', (err) ->
       throw err if err
       chain = snockets.depGraph.getChain('branch/center.coffee')
-      test.deepEqual chain, ['branch/edge.coffee', 'branch/periphery.js']
+      test.deepEqual chain, ['branch/edge.coffee', 'branch/periphery.js', 'branch/subbranch/leaf.js']
       test.done()
 
   'require_tree works for nested directories': (test) ->

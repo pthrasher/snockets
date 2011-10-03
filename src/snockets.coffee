@@ -110,26 +110,23 @@ module.exports = class Snockets
           return callback err if err
           q.perform relName, depPath
 
-    requireTree = (relPath) =>
-      q.waitFor relPath
-      dirName = path.join path.dirname((filePath)), relPath
+    requireTree = (dirName) =>
+      q.waitFor dirName
       @readdir @absPath(dirName), flags, (err, items) =>
         return callback err if err
-        q.unwaitFor relPath
+        q.unwaitFor dirName
         for item in items
-          itemPath = path.join(dirName, item)
+          itemPath = path.join dirName, item
           continue if @absPath(itemPath) is @absPath(filePath)
           q.waitFor itemPath
           do (itemPath) =>
             @stat @absPath(itemPath), flags, (err, stats) =>
               return callback err if err
               if stats.isFile()
-                if path.extname(itemPath) in jsExts()
-                  q.perform itemPath, itemPath
-                else
-                  return q.unwaitFor itemPath
-              else if stats.isDirectory()
+                q.perform itemPath, itemPath
+              else
                 requireTree itemPath
+                q.unwaitFor itemPath
 
     @readFile filePath, flags, (err) =>
       return callback err if err
@@ -141,7 +138,8 @@ module.exports = class Snockets
           when 'require'
             require relPath for relPath in relPaths
           when 'require_tree'
-            requireTree relPath for relPath in relPaths
+            for relPath in relPaths
+              requireTree path.join path.dirname(filePath), relPath
 
       q.finalize()
 

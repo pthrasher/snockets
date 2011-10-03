@@ -99,26 +99,23 @@
           <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
           <span class="nx">q</span><span class="p">.</span><span class="nx">perform</span> <span class="nx">relName</span><span class="p">,</span> <span class="nx">depPath</span>
 
-    <span class="nv">requireTree = </span><span class="p">(</span><span class="nx">relPath</span><span class="p">)</span> <span class="o">=&gt;</span>
-      <span class="nx">q</span><span class="p">.</span><span class="nx">waitFor</span> <span class="nx">relPath</span>
-      <span class="nv">dirName = </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span> <span class="nx">path</span><span class="p">.</span><span class="nx">dirname</span><span class="p">((</span><span class="nx">filePath</span><span class="p">)),</span> <span class="nx">relPath</span>
+    <span class="nv">requireTree = </span><span class="p">(</span><span class="nx">dirName</span><span class="p">)</span> <span class="o">=&gt;</span>
+      <span class="nx">q</span><span class="p">.</span><span class="nx">waitFor</span> <span class="nx">dirName</span>
       <span class="nx">@readdir</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">dirName</span><span class="p">),</span> <span class="nx">flags</span><span class="p">,</span> <span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">items</span><span class="p">)</span> <span class="o">=&gt;</span>
         <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
-        <span class="nx">q</span><span class="p">.</span><span class="nx">unwaitFor</span> <span class="nx">relPath</span>
+        <span class="nx">q</span><span class="p">.</span><span class="nx">unwaitFor</span> <span class="nx">dirName</span>
         <span class="k">for</span> <span class="nx">item</span> <span class="k">in</span> <span class="nx">items</span>
-          <span class="nv">itemPath = </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">(</span><span class="nx">dirName</span><span class="p">,</span> <span class="nx">item</span><span class="p">)</span>
+          <span class="nv">itemPath = </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span> <span class="nx">dirName</span><span class="p">,</span> <span class="nx">item</span>
           <span class="k">continue</span> <span class="k">if</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">itemPath</span><span class="p">)</span> <span class="o">is</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">filePath</span><span class="p">)</span>
           <span class="nx">q</span><span class="p">.</span><span class="nx">waitFor</span> <span class="nx">itemPath</span>
           <span class="nx">do</span> <span class="p">(</span><span class="nx">itemPath</span><span class="p">)</span> <span class="o">=&gt;</span>
             <span class="nx">@stat</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">itemPath</span><span class="p">),</span> <span class="nx">flags</span><span class="p">,</span> <span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">stats</span><span class="p">)</span> <span class="o">=&gt;</span>
               <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
               <span class="k">if</span> <span class="nx">stats</span><span class="p">.</span><span class="nx">isFile</span><span class="p">()</span>
-                <span class="k">if</span> <span class="nx">path</span><span class="p">.</span><span class="nx">extname</span><span class="p">(</span><span class="nx">itemPath</span><span class="p">)</span> <span class="k">in</span> <span class="nx">jsExts</span><span class="p">()</span>
-                  <span class="nx">q</span><span class="p">.</span><span class="nx">perform</span> <span class="nx">itemPath</span><span class="p">,</span> <span class="nx">itemPath</span>
-                <span class="k">else</span>
-                  <span class="k">return</span> <span class="nx">q</span><span class="p">.</span><span class="nx">unwaitFor</span> <span class="nx">itemPath</span>
-              <span class="k">else</span> <span class="k">if</span> <span class="nx">stats</span><span class="p">.</span><span class="nx">isDirectory</span><span class="p">()</span>
+                <span class="nx">q</span><span class="p">.</span><span class="nx">perform</span> <span class="nx">itemPath</span><span class="p">,</span> <span class="nx">itemPath</span>
+              <span class="k">else</span>
                 <span class="nx">requireTree</span> <span class="nx">itemPath</span>
+                <span class="nx">q</span><span class="p">.</span><span class="nx">unwaitFor</span> <span class="nx">itemPath</span>
 
     <span class="nx">@readFile</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="o">=&gt;</span>
       <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
@@ -130,7 +127,8 @@
           <span class="k">when</span> <span class="s1">&#39;require&#39;</span>
             <span class="nx">require</span> <span class="nx">relPath</span> <span class="k">for</span> <span class="nx">relPath</span> <span class="k">in</span> <span class="nx">relPaths</span>
           <span class="k">when</span> <span class="s1">&#39;require_tree&#39;</span>
-            <span class="nx">requireTree</span> <span class="nx">relPath</span> <span class="k">for</span> <span class="nx">relPath</span> <span class="k">in</span> <span class="nx">relPaths</span>
+            <span class="k">for</span> <span class="nx">relPath</span> <span class="k">in</span> <span class="nx">relPaths</span>
+              <span class="nx">requireTree</span> <span class="nx">path</span><span class="p">.</span><span class="nx">join</span> <span class="nx">path</span><span class="p">.</span><span class="nx">dirname</span><span class="p">(</span><span class="nx">filePath</span><span class="p">),</span> <span class="nx">relPath</span>
 
       <span class="nx">q</span><span class="p">.</span><span class="nx">finalize</span><span class="p">()</span></pre></div>             </td>           </tr>                               <tr id="section-5">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-5">&#182;</a>               </div>               <p>Searches for a file with the given name (no extension, e.g. <code>'foo/bar'</code>)</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">findMatchingFile: </span><span class="nf">(filename, flags, callback) -&gt;</span>
     <span class="nv">tryFiles = </span><span class="p">(</span><span class="nx">filePaths</span><span class="p">)</span> <span class="o">=&gt;</span>
