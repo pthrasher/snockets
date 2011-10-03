@@ -55,6 +55,13 @@ testSuite =
       test.deepEqual chain, ['middleEarth/legolas.coffee', 'middleEarth/shire/bilbo.js', 'middleEarth/shire/frodo.coffee']
       test.done()
 
+  'require_tree works for redundant directories': (test) ->
+    snockets.scan 'trilogy.coffee', (err) ->
+      throw err if err
+      chain = snockets.depGraph.getChain('trilogy.coffee')
+      test.deepEqual chain, ['middleEarth/shire/bilbo.js', 'middleEarth/shire/frodo.coffee', 'middleEarth/legolas.coffee']
+      test.done()
+
   'getCompiledChain returns correct .js filenames and code': (test) ->
     snockets.getCompiledChain 'z.coffee', (err, chain) ->
       throw err if err

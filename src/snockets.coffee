@@ -91,7 +91,8 @@ module.exports = class Snockets
         if depPath is filePath
           err = new Error("Script tries to require itself: #{filePath}")
           return callback err
-        depList.push depPath
+        unless depPath in depList
+          depList.push depPath
         @updateDirectives depPath, flags, excludes..., (err) ->
           return callback err if err
           next()

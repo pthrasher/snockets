@@ -80,7 +80,8 @@
         <span class="k">if</span> <span class="nx">depPath</span> <span class="o">is</span> <span class="nx">filePath</span>
           <span class="nv">err = </span><span class="k">new</span> <span class="nb">Error</span><span class="p">(</span><span class="s2">&quot;Script tries to require itself: #{filePath}&quot;</span><span class="p">)</span>
           <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span>
-        <span class="nx">depList</span><span class="p">.</span><span class="nx">push</span> <span class="nx">depPath</span>
+        <span class="nx">unless</span> <span class="nx">depPath</span> <span class="k">in</span> <span class="nx">depList</span>
+          <span class="nx">depList</span><span class="p">.</span><span class="nx">push</span> <span class="nx">depPath</span>
         <span class="nx">@updateDirectives</span> <span class="nx">depPath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="nx">excludes</span><span class="p">...,</span> <span class="nf">(err) -&gt;</span>
           <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
           <span class="nx">next</span><span class="p">()</span>
