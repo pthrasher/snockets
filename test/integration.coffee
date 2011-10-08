@@ -73,14 +73,18 @@ testSuite =
       test.done()
 
   'getConcatenation returns correct raw JS code': (test) ->
-    snockets.getConcatenation 'z.coffee', (err, js) ->
+    snockets.getConcatenation 'z.coffee', (err, js1, changed) ->
       throw err if err
-      test.equal js, """
+      test.equal js1, """
         (function() {\n  "Double rainbow\\nSO INTENSE";\n}).call(this);\n
         //= require x
         (function() {\n\n}).call(this);\n
       """
-      test.done()
+      snockets.getConcatenation 'z.coffee', (err, js2, changed) ->
+        throw err if err
+        test.ok !changed
+        test.equal js1, js2
+        test.done()
 
   'getConcatenation returns correct minified JS code': (test) ->
     snockets.getConcatenation 'z.coffee', minify: true, (err, js) ->
@@ -93,13 +97,13 @@ testSuite =
   'getConcatenation caches minified JS code': (test) ->
     flags = minify: true
     snockets.getConcatenation 'jquery-1.6.4.js', flags, (err, js, changed) ->
-      test.ok changed
+      throw err if err
       startTime = new Date
       snockets.getConcatenation 'jquery-1.6.4.js', flags, (err, js, changed) ->
+        throw err if err
         test.ok !changed
         endTime = new Date
         test.ok endTime - startTime < 10
-        snockets.concatCache['jquery-1.6.4.js'] = null  # clear test state
         test.done()
 
 # Every test runs both synchronously and asynchronously.

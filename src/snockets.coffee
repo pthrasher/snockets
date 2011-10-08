@@ -91,7 +91,7 @@ module.exports = class Snockets
         result = concatenation
 
       callback? null, result, concatenationChanged
-      concatenation
+      result
 
   # ## Internal methods
 
