@@ -90,6 +90,18 @@ testSuite =
       """
       test.done()
 
+  'getConcatenation caches minified JS code': (test) ->
+    flags = minify: true
+    snockets.getConcatenation 'jquery-1.6.4.js', flags, (err, js, changed) ->
+      test.ok changed
+      startTime = new Date
+      snockets.getConcatenation 'jquery-1.6.4.js', flags, (err, js, changed) ->
+        test.ok !changed
+        endTime = new Date
+        test.ok endTime - startTime < 10
+        snockets.concatCache['jquery-1.6.4.js'] = null  # clear test state
+        test.done()
+
 # Every test runs both synchronously and asynchronously.
 for name, func of testSuite
   do (func) ->

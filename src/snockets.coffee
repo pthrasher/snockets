@@ -13,6 +13,7 @@ module.exports = class Snockets
     @options.src ?= '.'
     @options.async ?= true
     @cache = {}
+    @concatCache = {}
     @depGraph = new DepGraph
 
   # ## Public methods
@@ -23,10 +24,10 @@ module.exports = class Snockets
     flags ?= {}
     flags.async ?= @options.async
 
-    @updateDirectives filePath, flags, (err) =>
+    @updateDirectives filePath, flags, (err, graphChanged) =>
       if err
-        if callback then callback err else throw err
-      callback? null, @depGraph
+        if callback then return callback err else throw err
+      callback? null, @depGraph, graphChanged
       @depGraph
 
   getCompiledChain: (filePath, flags, callback) ->
@@ -35,13 +36,13 @@ module.exports = class Snockets
     flags ?= {}
     flags.async ?= @options.async
 
-    @updateDirectives filePath, flags, (err) =>
+    @updateDirectives filePath, flags, (err, graphChanged) =>
       if err
-        if callback then callback err else throw err
+        if callback then return callback err else throw err
       try
         chain = @depGraph.getChain filePath
       catch e
-        if callback then callback e else throw e
+        if callback then return callback e else throw e
 
       compiledChain = for link in chain.concat filePath
         o = {}
@@ -52,7 +53,7 @@ module.exports = class Snockets
         o.js = @cache[link].js.toString 'utf8'
         o
 
-      callback? null, compiledChain
+      callback? null, compiledChain, graphChanged
       compiledChain
 
   getConcatenation: (filePath, flags, callback) ->
@@ -60,22 +61,36 @@ module.exports = class Snockets
       callback = flags; flags = {}
     flags ?= {}
     flags.async ?= @options.async
+    concatenationChanged = true
 
-    @updateDirectives filePath, flags, (err) =>
+    @updateDirectives filePath, flags, (err, graphChanged) =>
       if err
-        if callback then callback err else throw err
+        if callback then return callback err else throw err
       try
-        chain = @depGraph.getChain filePath
-        concatenation = (for link in chain.concat filePath
-          @compileFile link
-          @cache[link].js.toString 'utf8'
-        ).join '\n'
+        if @concatCache[filePath]?.data
+          concatenation = @concatCache[filePath].data.toString 'utf8'
+          if !flags.minify then concatenationChanged = false
+        else
+          chain = @depGraph.getChain filePath
+          concatenation = (for link in chain.concat filePath
+            @compileFile link
+            @cache[link].js.toString 'utf8'
+          ).join '\n'
+          @concatCache[filePath] = data: new Buffer(concatenation)
       catch e
-        if callback then callback e else throw e
+        if callback then return callback e else throw e
 
-      if flags.minify then concatenation = minify concatenation
+      if flags.minify
+        if @concatCache[filePath]?.minifiedData
+          result = @concatCache[filePath].minifiedData.toString 'utf8'
+          concatenationChanged = false
+        else
+          result = minify concatenation
+          @concatCache[filePath].minifiedData = new Buffer(result)
+      else
+        result = concatenation
 
-      callback? null, concatenation
+      callback? null, result, concatenationChanged
       concatenation
 
   # ## Internal methods
@@ -86,6 +101,7 @@ module.exports = class Snockets
     excludes.push filePath
 
     depList = []
+    graphChanged = false
     q = new HoldingQueue
       task: (depPath, next) =>
         if depPath is filePath
@@ -97,8 +113,12 @@ module.exports = class Snockets
           return callback err if err
           next()
       onComplete: =>
-        @depGraph.map[filePath] = depList
-        callback()
+        unless _.isEqual depList , @depGraph.map[filePath]
+          @depGraph.map[filePath] = depList
+          graphChanged = true
+        if graphChanged
+          @concatCache[filePath] = null
+        callback null, graphChanged
 
     require = (relPath) =>
       q.waitFor relName = stripExt relPath
@@ -129,8 +149,9 @@ module.exports = class Snockets
                 requireTree itemPath
                 q.unwaitFor itemPath
 
-    @readFile filePath, flags, (err) =>
+    @readFile filePath, flags, (err, fileChanged) =>
       return callback err if err
+      if fileChanged then graphChanged = true
       for directive in parseDirectives(@cache[filePath].data.toString 'utf8')
         words = directive.replace(/['"]/g, '').split /\s+/
         [command, relPaths...] = words
@@ -186,17 +207,18 @@ module.exports = class Snockets
   readFile: (filePath, flags, callback) ->
     @stat filePath, flags, (err, stats) =>
       return callback err if err
-      return callback() if timeEq @cache[filePath]?.mtime, stats.mtime
+      if timeEq @cache[filePath]?.mtime, stats.mtime
+        return callback null, false
       if flags.async
           fs.readFile @absPath(filePath), (err, data) =>
             return callback err if err
             @cache[filePath] = {mtime: stats.mtime, data}
-            callback()
+            callback null, true
       else
         try
           data = fs.readFileSync @absPath(filePath)
           @cache[filePath] = {mtime: stats.mtime, data}
-          callback()
+          callback null, true
         catch e
           callback e
 

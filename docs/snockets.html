@@ -11,16 +11,17 @@
     <span class="nx">@options</span><span class="p">.</span><span class="nx">src</span> <span class="o">?=</span> <span class="s1">&#39;.&#39;</span>
     <span class="nx">@options</span><span class="p">.</span><span class="nx">async</span> <span class="o">?=</span> <span class="kc">true</span>
     <span class="vi">@cache = </span><span class="p">{}</span>
+    <span class="vi">@concatCache = </span><span class="p">{}</span>
     <span class="vi">@depGraph = </span><span class="k">new</span> <span class="nx">DepGraph</span></pre></div>             </td>           </tr>                               <tr id="section-2">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-2">&#182;</a>               </div>               <h2>Public methods</h2>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">scan: </span><span class="nf">(filePath, flags, callback) -&gt;</span>
     <span class="k">if</span> <span class="k">typeof</span> <span class="nx">flags</span> <span class="o">is</span> <span class="s1">&#39;function&#39;</span>
       <span class="nv">callback = </span><span class="nx">flags</span><span class="p">;</span> <span class="nv">flags = </span><span class="p">{}</span>
     <span class="nx">flags</span> <span class="o">?=</span> <span class="p">{}</span>
     <span class="nx">flags</span><span class="p">.</span><span class="nx">async</span> <span class="o">?=</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">async</span>
 
-    <span class="nx">@updateDirectives</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="o">=&gt;</span>
+    <span class="nx">@updateDirectives</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">graphChanged</span><span class="p">)</span> <span class="o">=&gt;</span>
       <span class="k">if</span> <span class="nx">err</span>
-        <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">err</span>
-      <span class="nx">callback</span><span class="o">?</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">@depGraph</span>
+        <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">err</span>
+      <span class="nx">callback</span><span class="o">?</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">@depGraph</span><span class="p">,</span> <span class="nx">graphChanged</span>
       <span class="nx">@depGraph</span>
 
   <span class="nv">getCompiledChain: </span><span class="nf">(filePath, flags, callback) -&gt;</span>
@@ -29,13 +30,13 @@
     <span class="nx">flags</span> <span class="o">?=</span> <span class="p">{}</span>
     <span class="nx">flags</span><span class="p">.</span><span class="nx">async</span> <span class="o">?=</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">async</span>
 
-    <span class="nx">@updateDirectives</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="o">=&gt;</span>
+    <span class="nx">@updateDirectives</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">graphChanged</span><span class="p">)</span> <span class="o">=&gt;</span>
       <span class="k">if</span> <span class="nx">err</span>
-        <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">err</span>
+        <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">err</span>
       <span class="k">try</span>
         <span class="nv">chain = </span><span class="nx">@depGraph</span><span class="p">.</span><span class="nx">getChain</span> <span class="nx">filePath</span>
       <span class="k">catch</span> <span class="nx">e</span>
-        <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="nx">callback</span> <span class="nx">e</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">e</span>
+        <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="k">return</span> <span class="nx">callback</span> <span class="nx">e</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">e</span>
 
       <span class="nv">compiledChain = </span><span class="k">for</span> <span class="nx">link</span> <span class="k">in</span> <span class="nx">chain</span><span class="p">.</span><span class="nx">concat</span> <span class="nx">filePath</span>
         <span class="nv">o = </span><span class="p">{}</span>
@@ -46,7 +47,7 @@
         <span class="nv">o.js = </span><span class="nx">@cache</span><span class="p">[</span><span class="nx">link</span><span class="p">].</span><span class="nx">js</span><span class="p">.</span><span class="nx">toString</span> <span class="s1">&#39;utf8&#39;</span>
         <span class="nx">o</span>
 
-      <span class="nx">callback</span><span class="o">?</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">compiledChain</span>
+      <span class="nx">callback</span><span class="o">?</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">compiledChain</span><span class="p">,</span> <span class="nx">graphChanged</span>
       <span class="nx">compiledChain</span>
 
   <span class="nv">getConcatenation: </span><span class="nf">(filePath, flags, callback) -&gt;</span>
@@ -54,27 +55,42 @@
       <span class="nv">callback = </span><span class="nx">flags</span><span class="p">;</span> <span class="nv">flags = </span><span class="p">{}</span>
     <span class="nx">flags</span> <span class="o">?=</span> <span class="p">{}</span>
     <span class="nx">flags</span><span class="p">.</span><span class="nx">async</span> <span class="o">?=</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">async</span>
+    <span class="nv">concatenationChanged = </span><span class="kc">true</span>
 
-    <span class="nx">@updateDirectives</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="o">=&gt;</span>
+    <span class="nx">@updateDirectives</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">graphChanged</span><span class="p">)</span> <span class="o">=&gt;</span>
       <span class="k">if</span> <span class="nx">err</span>
-        <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">err</span>
+        <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">err</span>
       <span class="k">try</span>
-        <span class="nv">chain = </span><span class="nx">@depGraph</span><span class="p">.</span><span class="nx">getChain</span> <span class="nx">filePath</span>
-        <span class="nv">concatenation = </span><span class="p">(</span><span class="k">for</span> <span class="nx">link</span> <span class="k">in</span> <span class="nx">chain</span><span class="p">.</span><span class="nx">concat</span> <span class="nx">filePath</span>
-          <span class="nx">@compileFile</span> <span class="nx">link</span>
-          <span class="nx">@cache</span><span class="p">[</span><span class="nx">link</span><span class="p">].</span><span class="nx">js</span><span class="p">.</span><span class="nx">toString</span> <span class="s1">&#39;utf8&#39;</span>
-        <span class="p">).</span><span class="nx">join</span> <span class="s1">&#39;\n&#39;</span>
+        <span class="k">if</span> <span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span><span class="o">?</span><span class="p">.</span><span class="nx">data</span>
+          <span class="nv">concatenation = </span><span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nx">data</span><span class="p">.</span><span class="nx">toString</span> <span class="s1">&#39;utf8&#39;</span>
+          <span class="k">if</span> <span class="o">!</span><span class="nx">flags</span><span class="p">.</span><span class="nx">minify</span> <span class="k">then</span> <span class="nv">concatenationChanged = </span><span class="kc">false</span>
+        <span class="k">else</span>
+          <span class="nv">chain = </span><span class="nx">@depGraph</span><span class="p">.</span><span class="nx">getChain</span> <span class="nx">filePath</span>
+          <span class="nv">concatenation = </span><span class="p">(</span><span class="k">for</span> <span class="nx">link</span> <span class="k">in</span> <span class="nx">chain</span><span class="p">.</span><span class="nx">concat</span> <span class="nx">filePath</span>
+            <span class="nx">@compileFile</span> <span class="nx">link</span>
+            <span class="nx">@cache</span><span class="p">[</span><span class="nx">link</span><span class="p">].</span><span class="nx">js</span><span class="p">.</span><span class="nx">toString</span> <span class="s1">&#39;utf8&#39;</span>
+          <span class="p">).</span><span class="nx">join</span> <span class="s1">&#39;\n&#39;</span>
+          <span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span> <span class="o">=</span> <span class="nv">data: </span><span class="k">new</span> <span class="nx">Buffer</span><span class="p">(</span><span class="nx">concatenation</span><span class="p">)</span>
       <span class="k">catch</span> <span class="nx">e</span>
-        <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="nx">callback</span> <span class="nx">e</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">e</span>
+        <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="k">return</span> <span class="nx">callback</span> <span class="nx">e</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">e</span>
 
-      <span class="k">if</span> <span class="nx">flags</span><span class="p">.</span><span class="nx">minify</span> <span class="k">then</span> <span class="nv">concatenation = </span><span class="nx">minify</span> <span class="nx">concatenation</span>
+      <span class="k">if</span> <span class="nx">flags</span><span class="p">.</span><span class="nx">minify</span>
+        <span class="k">if</span> <span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span><span class="o">?</span><span class="p">.</span><span class="nx">minifiedData</span>
+          <span class="nv">result = </span><span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nx">minifiedData</span><span class="p">.</span><span class="nx">toString</span> <span class="s1">&#39;utf8&#39;</span>
+          <span class="nv">concatenationChanged = </span><span class="kc">false</span>
+        <span class="k">else</span>
+          <span class="nv">result = </span><span class="nx">minify</span> <span class="nx">concatenation</span>
+          <span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nv">minifiedData = </span><span class="k">new</span> <span class="nx">Buffer</span><span class="p">(</span><span class="nx">result</span><span class="p">)</span>
+      <span class="k">else</span>
+        <span class="nv">result = </span><span class="nx">concatenation</span>
 
-      <span class="nx">callback</span><span class="o">?</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">concatenation</span>
+      <span class="nx">callback</span><span class="o">?</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">result</span><span class="p">,</span> <span class="nx">concatenationChanged</span>
       <span class="nx">concatenation</span></pre></div>             </td>           </tr>                               <tr id="section-3">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-3">&#182;</a>               </div>               <h2>Internal methods</h2>             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-4">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-4">&#182;</a>               </div>               <p>Interprets the directives from the given file to update <code>@depGraph</code>.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">updateDirectives: </span><span class="nf">(filePath, flags, excludes..., callback) -&gt;</span>
     <span class="k">return</span> <span class="nx">callback</span><span class="p">()</span> <span class="k">if</span> <span class="nx">filePath</span> <span class="k">in</span> <span class="nx">excludes</span>
     <span class="nx">excludes</span><span class="p">.</span><span class="nx">push</span> <span class="nx">filePath</span>
 
     <span class="nv">depList = </span><span class="p">[]</span>
+    <span class="nv">graphChanged = </span><span class="kc">false</span>
     <span class="nv">q = </span><span class="k">new</span> <span class="nx">HoldingQueue</span>
       <span class="nv">task: </span><span class="p">(</span><span class="nx">depPath</span><span class="p">,</span> <span class="nx">next</span><span class="p">)</span> <span class="o">=&gt;</span>
         <span class="k">if</span> <span class="nx">depPath</span> <span class="o">is</span> <span class="nx">filePath</span>
@@ -86,8 +102,12 @@
           <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
           <span class="nx">next</span><span class="p">()</span>
       <span class="nv">onComplete: </span><span class="o">=&gt;</span>
-        <span class="nx">@depGraph</span><span class="p">.</span><span class="nx">map</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span> <span class="o">=</span> <span class="nx">depList</span>
-        <span class="nx">callback</span><span class="p">()</span>
+        <span class="nx">unless</span> <span class="nx">_</span><span class="p">.</span><span class="nx">isEqual</span> <span class="nx">depList</span> <span class="p">,</span> <span class="nx">@depGraph</span><span class="p">.</span><span class="nx">map</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span>
+          <span class="nx">@depGraph</span><span class="p">.</span><span class="nx">map</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span> <span class="o">=</span> <span class="nx">depList</span>
+          <span class="nv">graphChanged = </span><span class="kc">true</span>
+        <span class="k">if</span> <span class="nx">graphChanged</span>
+          <span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span> <span class="o">=</span> <span class="kc">null</span>
+        <span class="nx">callback</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">graphChanged</span>
 
     <span class="nv">require = </span><span class="p">(</span><span class="nx">relPath</span><span class="p">)</span> <span class="o">=&gt;</span>
       <span class="nx">q</span><span class="p">.</span><span class="nx">waitFor</span> <span class="nv">relName = </span><span class="nx">stripExt</span> <span class="nx">relPath</span>
@@ -118,8 +138,9 @@
                 <span class="nx">requireTree</span> <span class="nx">itemPath</span>
                 <span class="nx">q</span><span class="p">.</span><span class="nx">unwaitFor</span> <span class="nx">itemPath</span>
 
-    <span class="nx">@readFile</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="p">(</span><span class="nx">err</span><span class="p">)</span> <span class="o">=&gt;</span>
+    <span class="nx">@readFile</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">fileChanged</span><span class="p">)</span> <span class="o">=&gt;</span>
       <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
+      <span class="k">if</span> <span class="nx">fileChanged</span> <span class="k">then</span> <span class="nv">graphChanged = </span><span class="kc">true</span>
       <span class="k">for</span> <span class="nx">directive</span> <span class="k">in</span> <span class="nx">parseDirectives</span><span class="p">(</span><span class="nx">@cache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nx">data</span><span class="p">.</span><span class="nx">toString</span> <span class="s1">&#39;utf8&#39;</span><span class="p">)</span>
         <span class="nv">words = </span><span class="nx">directive</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/[&#39;&quot;]/g</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">).</span><span class="nx">split</span> <span class="sr">/\s+/</span>
         <span class="p">[</span><span class="nx">command</span><span class="p">,</span> <span class="nx">relPaths</span><span class="p">...]</span> <span class="o">=</span> <span class="nx">words</span>
@@ -163,17 +184,18 @@
         <span class="nx">callback</span> <span class="nx">e</span></pre></div>             </td>           </tr>                               <tr id="section-8">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-8">&#182;</a>               </div>               <p>Reads a file's data and timestamp into the cache.</p>             </td>             <td class="code">               <div class="highlight"><pre>  <span class="nv">readFile: </span><span class="nf">(filePath, flags, callback) -&gt;</span>
     <span class="nx">@stat</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">stats</span><span class="p">)</span> <span class="o">=&gt;</span>
       <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
-      <span class="k">return</span> <span class="nx">callback</span><span class="p">()</span> <span class="k">if</span> <span class="nx">timeEq</span> <span class="nx">@cache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span><span class="o">?</span><span class="p">.</span><span class="nx">mtime</span><span class="p">,</span> <span class="nx">stats</span><span class="p">.</span><span class="nx">mtime</span>
+      <span class="k">if</span> <span class="nx">timeEq</span> <span class="nx">@cache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span><span class="o">?</span><span class="p">.</span><span class="nx">mtime</span><span class="p">,</span> <span class="nx">stats</span><span class="p">.</span><span class="nx">mtime</span>
+        <span class="k">return</span> <span class="nx">callback</span> <span class="kc">null</span><span class="p">,</span> <span class="kc">false</span>
       <span class="k">if</span> <span class="nx">flags</span><span class="p">.</span><span class="nx">async</span>
           <span class="nx">fs</span><span class="p">.</span><span class="nx">readFile</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">filePath</span><span class="p">),</span> <span class="p">(</span><span class="nx">err</span><span class="p">,</span> <span class="nx">data</span><span class="p">)</span> <span class="o">=&gt;</span>
             <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
             <span class="nx">@cache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="nv">mtime: </span><span class="nx">stats</span><span class="p">.</span><span class="nx">mtime</span><span class="p">,</span> <span class="nx">data</span><span class="p">}</span>
-            <span class="nx">callback</span><span class="p">()</span>
+            <span class="nx">callback</span> <span class="kc">null</span><span class="p">,</span> <span class="kc">true</span>
       <span class="k">else</span>
         <span class="k">try</span>
           <span class="nv">data = </span><span class="nx">fs</span><span class="p">.</span><span class="nx">readFileSync</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">filePath</span><span class="p">)</span>
           <span class="nx">@cache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="nv">mtime: </span><span class="nx">stats</span><span class="p">.</span><span class="nx">mtime</span><span class="p">,</span> <span class="nx">data</span><span class="p">}</span>
-          <span class="nx">callback</span><span class="p">()</span>
+          <span class="nx">callback</span> <span class="kc">null</span><span class="p">,</span> <span class="kc">true</span>
         <span class="k">catch</span> <span class="nx">e</span>
           <span class="nx">callback</span> <span class="nx">e</span>
 
