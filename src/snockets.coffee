@@ -104,6 +104,7 @@ module.exports = class Snockets
     graphChanged = false
     q = new HoldingQueue
       task: (depPath, next) =>
+        return next() unless path.extname(depPath) in jsExts()
         if depPath is filePath
           err = new Error("Script tries to require itself: #{filePath}")
           return callback err
