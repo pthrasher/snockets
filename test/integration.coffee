@@ -28,6 +28,12 @@ testSuite =
       test.deepEqual snockets.depGraph.getChain('song/loveAndMarriage.js'), ['song/horseAndCarriage.coffee']
       test.done()
 
+  'Multiple dependencies can be declared in one require directive': (test) ->
+    snockets.scan 'poly.coffee', (err) ->
+      throw err if err
+      test.deepEqual snockets.depGraph.getChain('poly.coffee'), ['b.js', 'x.coffee']
+      test.done()
+
   'Chained dependencies are correctly recorded': (test) ->
     snockets.scan 'z.coffee', (err) ->
       throw err if err
