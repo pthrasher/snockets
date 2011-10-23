@@ -236,6 +236,8 @@ module.exports = class Snockets
   absPath: (relPath) ->
     if relPath.match EXPLICIT_PATH
       relPath
+    else if @options.src.match EXPLICIT_PATH
+      path.join @options.src, relPath
     else
       path.join process.cwd(), @options.src, relPath
 

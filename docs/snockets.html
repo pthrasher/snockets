@@ -213,6 +213,8 @@
   <span class="nv">absPath: </span><span class="nf">(relPath) -&gt;</span>
     <span class="k">if</span> <span class="nx">relPath</span><span class="p">.</span><span class="nx">match</span> <span class="nx">EXPLICIT_PATH</span>
       <span class="nx">relPath</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">src</span><span class="p">.</span><span class="nx">match</span> <span class="nx">EXPLICIT_PATH</span>
+      <span class="nx">path</span><span class="p">.</span><span class="nx">join</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">src</span><span class="p">,</span> <span class="nx">relPath</span>
     <span class="k">else</span>
       <span class="nx">path</span><span class="p">.</span><span class="nx">join</span> <span class="nx">process</span><span class="p">.</span><span class="nx">cwd</span><span class="p">(),</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">src</span><span class="p">,</span> <span class="nx">relPath</span></pre></div>             </td>           </tr>                               <tr id="section-9">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-9">&#182;</a>               </div>               <h2>Compilers</h2>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">module.exports.compilers = compilers =</span>
   <span class="nv">coffee:</span>
