@@ -287,6 +287,7 @@ class HoldingQueue
       ), 10
 
 parseDirectives = (code) ->
+  code = code.replace /[\r\t ]+$/gm, '\n'  # fix for issue #2
   return [] unless match = HEADER.exec(code)
   header = match[0]
   match[1] while match = DIRECTIVE.exec header
