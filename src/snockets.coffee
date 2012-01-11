@@ -251,7 +251,7 @@ module.exports.compilers = compilers =
 
 # ## Regexes
 
-EXPLICIT_PATH = /^\/|^\.|:/
+EXPLICIT_PATH = /^\/|:/
 
 HEADER = ///
 (?:
