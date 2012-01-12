@@ -54,6 +54,13 @@ testSuite =
       test.deepEqual chain, ['branch/edge.coffee', 'branch/periphery.js', 'branch/subbranch/leaf.js']
       test.done()
 
+  'require works for includes that are relative to orig file using ../': (test) ->
+    snockets.scan 'first/syblingFolder.js', (err) ->
+      throw err if err
+      chain = snockets.depGraph.getChain('first/syblingFolder.js')
+      test.deepEqual chain, ['sybling/sybling.js']
+      test.done()
+
   'require_tree works for nested directories': (test) ->
     snockets.scan 'fellowship.js', (err) ->
       throw err if err
@@ -76,6 +83,24 @@ testSuite =
         {filename: 'y.js', js: '//= require x'}
         {filename: 'z.js', js: '(function() {\n\n}).call(this);\n'}
       ]
+      test.done()
+
+  'getCompiledChain returns correct .js filenames and code with ../ in require path': (test) ->
+    snockets.getCompiledChain 'first/syblingFolder.js', (err, chain) ->
+      throw err if err
+      test.deepEqual chain, [
+        {filename: 'sybling/sybling.js', js: 'var thereWillBeJS = 3;'}
+        {filename: 'first/syblingFolder.js', js: '//= require ../sybling/sybling.js'}
+      ]
+      test.done()
+
+  'getConcatenation returns correct raw JS code with ../ in require path': (test) ->
+    snockets.getConcatenation 'first/syblingFolder.js', (err, js1, changed) ->
+      throw err if err
+      test.equal js1, """
+        var thereWillBeJS = 3;
+        //= require ../sybling/sybling.js
+      """
       test.done()
 
   'getConcatenation returns correct raw JS code': (test) ->
