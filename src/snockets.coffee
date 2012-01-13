@@ -127,7 +127,7 @@ module.exports = class Snockets
         depPath = relName + '.js'
         q.perform relName, depPath
       else
-        depName = path.join path.dirname(filePath), relName
+        depName = @joinPath path.dirname(filePath), relName
         @findMatchingFile depName, flags, (err, depPath) ->
           return callback err if err
           q.perform relName, depPath
@@ -138,7 +138,7 @@ module.exports = class Snockets
         return callback err if err
         q.unwaitFor dirName
         for item in items
-          itemPath = path.join dirName, item
+          itemPath = @joinPath dirName, item
           continue if @absPath(itemPath) is @absPath(filePath)
           q.waitFor itemPath
           do (itemPath) =>
@@ -162,7 +162,7 @@ module.exports = class Snockets
             require relPath for relPath in relPaths
           when 'require_tree'
             for relPath in relPaths
-              requireTree path.join path.dirname(filePath), relPath
+              requireTree @joinPath path.dirname(filePath), relPath
 
       q.finalize()
 
@@ -178,7 +178,7 @@ module.exports = class Snockets
     @readdir path.dirname(@absPath filename), flags, (err, files) =>
       return callback err if err
       return if tryFiles (for file in files
-        path.join path.dirname(filename), file
+        @joinPath path.dirname(filename), file
       )
       callback new Error("File not found: '#{filename}'")
 
@@ -237,9 +237,14 @@ module.exports = class Snockets
     if relPath.match EXPLICIT_PATH
       relPath
     else if @options.src.match EXPLICIT_PATH
-      path.join @options.src, relPath
+      @joinPath @options.src, relPath
     else
-      path.join process.cwd(), @options.src, relPath
+      @joinPath process.cwd(), @options.src, relPath
+
+  # Replace backslashes with forward slashes for Windows compatability
+  joinPath: ->
+    slash = '/' # / on the same line as the regex breaks ST2 syntax highlight
+    path.join.apply(path, arguments).replace /\\/g, slash
 
 # ## Compilers
 
