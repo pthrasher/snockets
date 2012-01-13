@@ -1,6 +1,6 @@
 fs            = require 'fs'
 {print}       = require 'sys'
-{spawn, exec} = require 'child_process'
+child_process = require 'child_process'
 {watchTree}   = require 'watch-tree'
 
 build = (watch, callback) ->
@@ -14,6 +14,10 @@ build = (watch, callback) ->
   coffee.stdout.on 'data', (data) -> print data.toString()
   coffee.stderr.on 'data', (data) -> print data.toString()
   coffee.on 'exit', (status) -> callback?() if status is 0
+
+spawn = ->
+  arguments[0] += '.cmd' if process.platform is 'win32'
+  child_process.spawn.apply(child_process, arguments)
 
 task 'docs', 'Generate annotated source code with Docco', ->
   fs.readdir 'src', (err, contents) ->
