@@ -241,10 +241,15 @@ module.exports = class Snockets
     else
       @joinPath process.cwd(), @options.src, relPath
 
-  # Replace backslashes with forward slashes for Windows compatability
   joinPath: ->
-    slash = '/' # / on the same line as the regex breaks ST2 syntax highlight
-    path.join.apply(path, arguments).replace /\\/g, slash
+    filePath = path.join.apply path, arguments
+
+    # Replace backslashes with forward slashes for Windows compatability
+    if process.platform is 'win32'
+      slash = '/' # / on the same line as the regex breaks ST2 syntax highlight
+      filePath.replace /\\/g, slash
+    else
+      filePath
 
 # ## Compilers
 
