@@ -19,6 +19,6 @@
   "devDependencies": {
     "coffee-script": "1.1.2",
     "nodeunit": "0.5.4",
-    "watch-tree": "0.1.1"
+    "watchit": ">=0.0.1"
   }
 }
