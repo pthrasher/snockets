@@ -110,8 +110,9 @@ module.exports = class Snockets
           return callback err
         unless depPath in depList
           depList.push depPath
-        @updateDirectives depPath, flags, excludes..., (err) ->
+        @updateDirectives depPath, flags, excludes..., (err, depChanged) ->
           return callback err if err
+          graphChanged or= depChanged
           next()
       onComplete: =>
         unless _.isEqual depList , @depGraph.map[filePath]
