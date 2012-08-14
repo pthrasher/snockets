@@ -2,7 +2,7 @@
   "author": "Trevor Burnham (http://trevorburnham.com)",
   "name": "snockets",
   "description": "Sprockets-esque script concatenation for Node",
-  "version": "1.3.7",
+  "version": "1.3.8",
   "homepage": "http://github.com/TrevorBurnham/snockets",
   "repository": {
     "type": "git",
