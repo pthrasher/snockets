@@ -11,7 +11,7 @@ _            = require 'underscore'
 
 module.exports = class Snockets
   constructor: (@options = {}) ->
-    @options.srcMap ?= false
+    @options.srcmap ?= false
     @options.src ?= '.'
     @options.async ?= true
     @cache = {}
@@ -74,23 +74,45 @@ module.exports = class Snockets
           if !flags.minify then concatenationChanged = false
         else
           chain = @depGraph.getChain filePath
+          anyNew = false
           concatenation = (for link in chain.concat filePath
-            @compileFile link
-            @cache[link].js.toString 'utf8'
+            compiled = @compileFile link
+            cacheref = @cache[link]
+            continue unless cacheref?
+
+            if flags.minify
+              if cacheref.minifiedData
+                js = cacheref.minifiedData.toString 'utf8'
+              else
+                anyNew = true
+                minopts = {}
+                if @options.srcmap
+                  minopts.outname = "#{stripExt(link)}.js"
+                  minopts.srcmap = true
+                  # this is a compiled script, it likely has it's own srcmap
+                  if compiled and cacheref.srcmap?
+                      minopts.srcmap = cacheref.srcmap
+
+                result = minify cacheref.js.toString('utf8'), minopts
+
+                unless _.isString result
+                  cacheref.srcmap = result.srcmap
+                  result = result.js
+
+                js = result
+            else
+              js = cacheref.js.toString 'utf8'
+
+            # return whatever we came up with above.
+            js
+
           ).join '\n'
+          concatenationChanged = true if anyNew
           @concatCache[filePath] = data: new Buffer(concatenation)
       catch e
         if callback then return callback e else throw e
 
-      if flags.minify
-        if @concatCache[filePath]?.minifiedData
-          result = @concatCache[filePath].minifiedData.toString 'utf8'
-          concatenationChanged = false
-        else
-          result = minify concatenation
-          @concatCache[filePath].minifiedData = new Buffer(result)
-      else
-        result = concatenation
+      # TODO: Concatenate the srcmaps here as well.
 
       callback? null, result, concatenationChanged
       result
@@ -232,7 +254,10 @@ module.exports = class Snockets
       false
     else
       src = @cache[filePath].data.toString 'utf8'
-      js = compilers[ext[1..]].compileSync @absPath(filePath), src
+      js = compilers[ext[1..]].compileSync @absPath(filePath), src, @options
+      unless _.isString js
+        @cache[filePath].srcmap = js.srcmap
+        js = js.js
       @cache[filePath].js = new Buffer(js)
       true
 
@@ -263,7 +288,22 @@ module.exports.compilers = compilers =
       opts =
         srcmap: false
       opts = _.extend opts, useropts
-      CoffeeScript.compile source, {filename: sourcePath}
+
+      compileopts =
+        filename: sourcePath
+
+      if opts.srcmap
+        compileopts = _.extend compileopts,
+          sourceMap: true
+          generatedFile: "#{stripExt(sourcePath)}.js"
+          sourceFile: [sourcePath]
+
+      output = CoffeeScript.compile source, compileopts
+      if opts.srcmap
+        srcmap = output.v3SourceMap
+        js = output.js
+        return { js, srcmap }
+      output
 
 # ## Regexes
 
@@ -321,6 +361,9 @@ jsExts = ->
 minify = (js, useropts = {}) ->
   opts =
     mangle: false
+    srcmap: null
+    outname: ''
+
   opts = _.extend opts, useropts
 
   top = uglify.parse js
@@ -334,11 +377,29 @@ minify = (js, useropts = {}) ->
     cmpd.mangle_names()
     cmpd.figure_out_scope()
 
+  streamopts = {}
+  if opts.srcmap?
+    smopts =
+      file: opts.outname
+
+    if opts.srcmap isnt true and opts.srcmap isnt false
+      # setting srcmap to true just makes us create an srcmap, otherwise, we're
+      # passing one in from another compiler.
+      smopts.orig = opts.srcmap
+    sm = uglify.SourceMap smopts
+    streamopts.source_map = sm
+
   stream = uglify.OutputStream {}
   cmpd.print stream
 
-  # return src
-  stream.toString()
+  js = stream.toString()
+  if opts.srcmap?
+    srcmap = sm.toString()
+    return { js, srcmap }
+
+  js
+
+
 
 timeEq = (date1, date2) ->
   date1? and date2? and date1.getTime() is date2.getTime()
