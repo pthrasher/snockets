@@ -1,3 +1,4 @@
+# vim:expandtab ts=2 sw=2
 # [snockets](http://github.com/TrevorBurnham/snockets)
 
 DepGraph = require 'dep-graph'
@@ -10,6 +11,7 @@ _            = require 'underscore'
 
 module.exports = class Snockets
   constructor: (@options = {}) ->
+    @options.srcMap ?= false
     @options.src ?= '.'
     @options.async ?= true
     @cache = {}
@@ -312,13 +314,27 @@ stripExt = (filePath) ->
 jsExts = ->
   (".#{ext}" for ext of compilers).concat '.js'
 
-minify = (js) ->
-  jsp = uglify.parser
-  pro = uglify.uglify
-  ast = jsp.parse js
-  ast = pro.ast_mangle ast
-  ast = pro.ast_squeeze ast
-  pro.gen_code ast
+
+minify = (js, useropts) ->
+  opts =
+    mangle: false
+
+  top = uglify.parse js
+  top.figure_out_scope()
+
+  # cmpd == compressed
+  cmpd = top.transform uglify.Compressor()
+  cmpd.figure_out_scope()
+
+  if opts.mangle
+    cmpd.mangle_names()
+    cmpd.figure_out_scope()
+
+  stream = uglify.OutputStream {}
+  cmpd.print stream
+
+  # return src
+  stream.toString()
 
 timeEq = (date1, date2) ->
   date1? and date2? and date1.getTime() is date2.getTime()
