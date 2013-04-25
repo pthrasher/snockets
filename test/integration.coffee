@@ -79,9 +79,9 @@ testSuite =
     snockets.getCompiledChain 'z.coffee', (err, chain) ->
       throw err if err
       test.deepEqual chain, [
-        {filename: 'x.js', js: '(function() {\n  "Double rainbow\\nSO INTENSE";\n}).call(this);\n'}
+        {filename: 'x.js', js: '(function() {\n  "Double rainbow\\nSO INTENSE";\n\n}).call(this);\n'}
         {filename: 'y.js', js: '//= require x'}
-        {filename: 'z.js', js: '(function() {\n\n}).call(this);\n'}
+        {filename: 'z.js', js: '(function() {\n\n\n}).call(this);\n'}
       ]
       test.done()
 
@@ -107,9 +107,9 @@ testSuite =
     snockets.getConcatenation 'z.coffee', (err, js1, changed) ->
       throw err if err
       test.equal js1, """
-        (function() {\n  "Double rainbow\\nSO INTENSE";\n}).call(this);\n
+        (function() {\n  "Double rainbow\\nSO INTENSE";\n\n}).call(this);\n
         //= require x
-        (function() {\n\n}).call(this);\n
+        (function() {\n\n\n}).call(this);\n
       """
       snockets.getConcatenation 'z.coffee', (err, js2, changed) ->
         throw err if err
@@ -121,7 +121,7 @@ testSuite =
     snockets.getConcatenation 'z.coffee', minify: true, (err, js) ->
       throw err if err
       test.equal js, """
-        (function(){"Double rainbow\\nSO INTENSE"}).call(this),function(){}.call(this)
+        (function(){"Double rainbow\\nSO INTENSE"}).call(this),function(){}.call(this);
       """
       test.done()
 

@@ -259,7 +259,10 @@ module.exports = class Snockets
 module.exports.compilers = compilers =
   coffee:
     match: /\.js$/
-    compileSync: (sourcePath, source) ->
+    compileSync: (sourcePath, source, useropts = {}) ->
+      opts =
+        srcmap: false
+      opts = _.extend opts, useropts
       CoffeeScript.compile source, {filename: sourcePath}
 
 # ## Regexes
@@ -315,9 +318,10 @@ jsExts = ->
   (".#{ext}" for ext of compilers).concat '.js'
 
 
-minify = (js, useropts) ->
+minify = (js, useropts = {}) ->
   opts =
     mangle: false
+  opts = _.extend opts, useropts
 
   top = uglify.parse js
   top.figure_out_scope()
