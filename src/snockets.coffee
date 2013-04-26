@@ -69,21 +69,25 @@ module.exports = class Snockets
       if err
         if callback then return callback err else throw err
       try
-        if @concatCache[filePath]?.data
+        if not flags.minify and @concatCache[filePath]?.data
           concatenation = @concatCache[filePath].data.toString 'utf8'
-          if !flags.minify then concatenationChanged = false
+          concatenationChanged = false
         else
           chain = @depGraph.getChain filePath
           anyNew = false
+          hit = []
+          miss = []
           concatenation = (for link in chain.concat filePath
             compiled = @compileFile link
             cacheref = @cache[link]
             continue unless cacheref?
 
             if flags.minify
-              if cacheref.minifiedData
+              if cacheref.minifiedData?
+                hit.push link
                 js = cacheref.minifiedData.toString 'utf8'
               else
+                miss.push link
                 anyNew = true
                 minopts = {}
                 if @options.srcmap
@@ -91,7 +95,7 @@ module.exports = class Snockets
                   minopts.srcmap = true
                   # this is a compiled script, it likely has it's own srcmap
                   if compiled and cacheref.srcmap?
-                      minopts.srcmap = cacheref.srcmap
+                    minopts.srcmap = cacheref.srcmap
 
                 result = minify cacheref.js.toString('utf8'), minopts
 
@@ -99,20 +103,33 @@ module.exports = class Snockets
                   cacheref.srcmap = result.srcmap
                   result = result.js
 
+                cacheref.minifiedData = new Buffer(result)
                 js = result
             else
               js = cacheref.js.toString 'utf8'
 
-            # return whatever we came up with above.
             js
 
           ).join '\n'
-          concatenationChanged = true if anyNew
-          @concatCache[filePath] = data: new Buffer(concatenation)
+
+        if anyNew
+          concatenationChanged = true
+        else
+          concatenationChanged = false
+
+        unless @concatCache[filePath]?
+          @concatCache[filePath] = {}
+
+        if flags.minify
+          @concatCache[filePath].minifiedData = new Buffer(concatenation)
+        else
+          @concatCache[filePath].data = new Buffer(concatenation)
       catch e
         if callback then return callback e else throw e
 
       # TODO: Concatenate the srcmaps here as well.
+
+      result = concatenation
 
       callback? null, result, concatenationChanged
       result

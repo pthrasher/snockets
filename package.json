@@ -14,7 +14,8 @@
     "mime": "1.2.2",
     "underscore": "1.1.7",
     "coffee-script": "~1.6.2",
-    "uglify-js": "~2.2.5"
+    "uglify-js": "~2.2.5",
+    "source-map": "~0.1.22"
   },
   "devDependencies": {
     "coffee-script": "1.1.2",

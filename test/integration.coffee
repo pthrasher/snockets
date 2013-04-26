@@ -121,7 +121,7 @@ testSuite =
     snockets.getConcatenation 'z.coffee', minify: true, (err, js) ->
       throw err if err
       test.equal js, """
-        (function(){"Double rainbow\\nSO INTENSE"}).call(this),function(){}.call(this);
+        (function(){"Double rainbow\\nSO INTENSE"}).call(this);\n\n(function(){}).call(this);
       """
       test.done()
 
