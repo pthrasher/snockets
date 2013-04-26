@@ -625,6 +625,5 @@ sourceMapCat = (opts) ->
 
   return JSON.parse generated.toString()
 
-
 timeEq = (date1, date2) ->
   date1? and date2? and date1.getTime() is date2.getTime()
