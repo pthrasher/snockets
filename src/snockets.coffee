@@ -2,6 +2,7 @@
 # [snockets](http://github.com/TrevorBurnham/snockets)
 
 DepGraph = require 'dep-graph'
+SourceMap = require 'source-map'
 
 CoffeeScript = require 'coffee-script'
 fs           = require 'fs'
@@ -416,6 +417,40 @@ minify = (js, useropts = {}) ->
 
   js
 
+
+sourceMapCat = (opts) ->
+  generated = new SourceMap.SourceMapGenerator({
+    # The filename of the generated source (output) that this source
+    # map is associated with.
+    file: opts.filename
+  })
+
+  # Last line of the concatenated script so far
+  combinedGeneratedLine = 0
+
+  for _original in opts.maps
+    original = new SourceMap.SourceMapConsumer _original
+
+    # Last line of the current map source when eachMapping finishes
+    originalLastLine = null
+
+    original.eachMapping (mapping) ->
+      generated.addMapping(
+        generated:
+          line: combinedGeneratedLine + mapping.generatedLine
+          column: mapping.generatedColumn
+        original:
+          line: mapping.originalLine
+          column: mapping.originalColumn
+        source: mapping.source  # Original source file
+      )
+
+      originalLastLine = mapping.generatedLine
+
+    # Add lines of the current map source file to our concatenated file
+    combinedGeneratedLine += originalLastLine
+
+  return generated.toString()
 
 
 timeEq = (date1, date2) ->
