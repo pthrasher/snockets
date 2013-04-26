@@ -1,4 +1,5 @@
 Snockets = require '../lib/snockets'
+path = require 'path'
 src = '../test/assets'
 snockets = new Snockets({src})
 
@@ -136,6 +137,26 @@ testSuite =
         endTime = new Date
         test.ok endTime - startTime < 10
         test.done()
+
+  'getConcatenation returns correct minified JS code and srcmap': (test) ->
+    staticRoot = path.resolve snockets.options.src
+    target = path.resolve staticRoot, 'all.js'
+    snockets.options.srcmap = true
+    snockets.options.staticRoot = staticRoot
+    snockets.options.target = target
+    snockets.options.staticRootUrl = '/assets/'
+
+    snockets.getConcatenation 'z.coffee', minify: true, (err, result) ->
+      throw err if err
+      { js, srcmap } = result
+      test.equal js, """
+        (function(){"Double rainbow\\nSO INTENSE"}).call(this);\n\n(function(){}).call(this);
+      """
+      test.equal srcmap.file, "/assets/all.js"
+      test.equal srcmap.sources[0], "/assets/x.coffee"
+      test.equal srcmap.sources[1], "/assets/z.coffee"
+      test.equal srcmap.mappings, "AAAA;CAAA,CAAA,0BAAA;CAAA;ACGG;CAAA;CAAA"
+      test.done()
 
 # Every test runs both synchronously and asynchronously.
 for name, func of testSuite

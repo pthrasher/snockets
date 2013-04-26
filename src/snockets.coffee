@@ -13,11 +13,44 @@ _            = require 'underscore'
 module.exports = class Snockets
   constructor: (@options = {}) ->
     @options.srcmap ?= false
+    @options.target ?= null
+    @options.staticRoot ?= null
+    @options.staticRootUrl ?= '/'
     @options.src ?= '.'
     @options.async ?= true
     @cache = {}
     @concatCache = {}
     @depGraph = new DepGraph
+    @logLevels = [
+      'info'
+      'warn'
+      'debug'
+      'error'
+    ]
+
+    # If the user wants srcmaps, we need to know a few other things first in
+    # order to adequately fill out info within them. If this info isn't
+    # provided, we cannot proceed.
+    if @options.srcmap
+      unless @options.staticRoot? or @options.target?
+        if not @options.staticRoot? and not @options.target?
+          errorStr = 'both of the options \'staticRoot\' and \'target\''
+        else if @options.staticRoot? and not @options.target?
+          errorStr = '\'target\' option'
+        else if not @options.staticRoot? and @options.target?
+          errorStr = '\'staticRoot\' option'
+        throw new Error("When generating source maps
+                         #{errorStr} must be provided.")
+
+  # ## Logging methods
+  log: (args, level) ->
+    if _.contains(@logLevels, level)
+      console.log.apply console, args
+
+  info: (args...) => @log args, 'info'
+  warn: (args...) => @log args, 'warn'
+  debug: (args...) => @log args, 'debug'
+  error: (args...) => @log args, 'error'
 
   # ## Public methods
 
@@ -67,73 +100,163 @@ module.exports = class Snockets
     concatenationChanged = true
 
     @updateDirectives filePath, flags, (err, graphChanged) =>
+      # fail fast
       if err
         if callback then return callback err else throw err
+
+      doSrcMap = @options.srcmap
+      doMinify = flags.minify
+      if doSrcMap and not doMinify
+        # we can't do srcmaps without minification reliably.
+        # TODO: We *can* do this if every src in the chain is coffeescript, or
+        #       another transpiled language that supports source maps. However,
+        #       if some of the source is javascript, or the language doesn't
+        #       support generating source maps, we cannot reliably create
+        #       concatenated files that map properly. Or any source maps in the
+        #       chain are missing, we don't have a simple way of doing this.
+        doSrcMap = false
+        @warn "Disabling srcmap generation due to no minification. [#{filePath}]"
+
+
+      # create the placeholder if it doesn't exist already.
+      unless @concatCache[filePath]?
+        @concatCache[filePath] = {}
+
+      # Don't trust the cache
+      cacheValid = false
+      hasData    = @concatCache[filePath].data?
+      hasMinData = @concatCache[filePath].minifiedData?
+      hasSrcMap  = @concatCache[filePath].srcmap?
+
+      # Attempt to validate the cache.
+      if not (doSrcMap and doMinify) # not srcmapping, not minifying
+        cacheValid = true if hasData
+      if not doSrcMap and doMinify # not srcmapping, minifying
+        cacheValid = true if hasMinData
+      if doSrcMap and doMinify # we're srcmapping and minifying
+        cacheValid = true if hasSrcMap and hasMinData
+
+      # We should now have a rough, early overview as to whether or not the
+      # cache is valid, as well as what sorts of things need to be generated
+      # below.
+
       try
-        if not flags.minify and @concatCache[filePath]?.data
+        if cacheValid and not doMinify
+          # We have a valid cache, and we're not minifying.
           concatenation = @concatCache[filePath].data.toString 'utf8'
           concatenationChanged = false
-        else
-          chain = @depGraph.getChain filePath
-          anyNew = false
-          hit = []
-          miss = []
-          concatenation = (for link in chain.concat filePath
-            compiled = @compileFile link
-            cacheref = @cache[link]
-            continue unless cacheref?
-
-            if flags.minify
-              if cacheref.minifiedData?
-                hit.push link
-                js = cacheref.minifiedData.toString 'utf8'
-              else
-                miss.push link
-                anyNew = true
-                minopts = {}
-                if @options.srcmap
-                  minopts.outname = "#{stripExt(link)}.js"
-                  minopts.srcmap = true
-                  # this is a compiled script, it likely has it's own srcmap
-                  if compiled and cacheref.srcmap?
-                    minopts.srcmap = cacheref.srcmap
-
-                result = minify cacheref.js.toString('utf8'), minopts
-
-                unless _.isString result
-                  cacheref.srcmap = result.srcmap
-                  result = result.js
-
-                cacheref.minifiedData = new Buffer(result)
-                js = result
-            else
-              js = cacheref.js.toString 'utf8'
-
-            js
-
-          ).join '\n'
-
-        if anyNew
-          concatenationChanged = true
-        else
+        else if cacheValid and doMinify and not doSrcMap
+          concatenation = @concatCache[filePath].minifiedData.toString 'utf8'
           concatenationChanged = false
-
-        unless @concatCache[filePath]?
-          @concatCache[filePath] = {}
-
-        if flags.minify
-          @concatCache[filePath].minifiedData = new Buffer(concatenation)
+        else if cacheValid and doMinify and doSrcMap
+          js = @concatCache[filePath].minifiedData.toString 'utf8'
+          srcmap = @concatCache[filePath].srcmap
+          concatenation = {
+            js
+            srcmap
+          }
+          concatenationChanged = false
         else
-          @concatCache[filePath].data = new Buffer(concatenation)
+          @concatCache[filePath].maps = {}
+
+          # append the src file to the end of it's own dependency list.
+          chain = @depGraph.getChain(filePath).concat filePath
+
+          cacheMiss = false # keep track of whether or not anything was regenerated.
+
+          sources = []
+          for link in chain
+            isCompiled = @compileFile link
+            cached = @cache[link] # get a reference to the cache.
+
+            # TODO: Find out what could possibly cause a file to not be cached
+            #       at this point..
+            continue unless cached?
+
+            _hasJs      = cached.js?
+            _hasMinData = cached.minifiedData?
+            _hasSrcMap  = cached.srcmap?
+
+            _cacheValid = false
+            if not doMinify
+              _cacheValid = true if _hasJs
+            if not doSrcMap and doMinify # not srcmapping, minifying
+              _cacheValid = true if _hasMinData
+            if doSrcMap and doMinify # we're srcmapping and minifying
+              _cacheValid = true if _hasSrcMap and _hasMinData
+
+            if _cacheValid and not doMinify
+              sources.push cached.js.toString 'utf8'
+            else if _cacheValid and doMinify and not doSrcMap
+              sources.push cached.minifiedData.toString 'utf8'
+            else if _cacheValid and doMinify and doSrcMap
+              sources.push {
+                js: cached.minifiedData.toString 'utf8'
+                srcmap: cached.srcmap
+              }
+            else
+              # CACHE MISS
+              # Do minification / sourcemapping
+              cacheMiss = true
+              _srcmap = null
+              _mindata = null
+
+              minopts = {}
+              if doSrcMap
+                absLink = path.resolve @options.src, link
+                minopts.outname = "#{stripExt(absLink)}.js"
+                minopts.srcmap = true
+                minopts.inname = absLink
+                minopts.staticRoot = @options.staticRoot
+                minopts.staticRootUrl = @options.staticRootUrl
+
+              if isCompiled and _hasSrcMap and doSrcMap
+                # pass existing srcmap to minifier.
+                minopts.srcmap = cached.srcmap
+
+              result = minify cached.js.toString('utf8'), minopts
+
+              if doSrcMap
+                _srcmap = result.srcmap
+                _mindata = new Buffer result.js
+                sources.push {
+                  srcmap: _srcmap
+                  js: result.js
+                }
+              else
+                _mindata = new Buffer result
+                sources.push result
+
+              cached.minifiedData = _mindata
+              cached.srcmap = _srcmap
+
+          if cacheMiss
+            concatenationChanged = true
+          else
+            concatenationChanged = false
+
+          # Concatenate the aggregated sources
+          if not doSrcMap
+            concatenation = sources.join '\n'
+          else
+            # We have to concatenate the source maps alongside the sources
+            _sources = _.pluck sources, 'js'
+            _maps    = _.pluck sources, 'srcmap'
+
+            catjs = _sources.join '\n'
+            targetUrl = getUrlPath @options.target, @options.staticRoot, @options.staticRootUrl
+            catmaps = sourceMapCat
+              filename: targetUrl
+              maps: _maps
+
+            concatenation =
+              js: catjs
+              srcmap: catmaps
       catch e
         if callback then return callback e else throw e
 
-      # TODO: Concatenate the srcmaps here as well.
-
-      result = concatenation
-
-      callback? null, result, concatenationChanged
-      result
+      callback? null, concatenation, concatenationChanged
+      concatenation
 
   # ## Internal methods
 
@@ -305,20 +428,33 @@ module.exports.compilers = compilers =
     compileSync: (sourcePath, source, useropts = {}) ->
       opts =
         srcmap: false
-      opts = _.extend opts, useropts
+        staticRoot: ''
+        staticRootUrl: '/'
+      _.extend opts, useropts
 
       compileopts =
         filename: sourcePath
 
       if opts.srcmap
-        compileopts = _.extend compileopts,
+        outname = "#{sourcePath}.js"
+        inname = sourcePath
+
+        inurl = getUrlPath inname, opts.staticRoot, opts.staticRootUrl
+        outurl = getUrlPath outname, opts.staticRoot, opts.staticRootUrl
+        inbn = path.basename inurl
+        outbn = path.basename outurl
+
+        _.extend compileopts,
+          filename: outbn
           sourceMap: true
-          generatedFile: "#{stripExt(sourcePath)}.js"
-          sourceFile: [sourcePath]
+          generatedFile: "#{stripExt outurl}.min.js"
+          sourceFiles: [inurl]
 
       output = CoffeeScript.compile source, compileopts
       if opts.srcmap
         srcmap = output.v3SourceMap
+        if _.isString srcmap
+          srcmap = JSON.parse srcmap
         js = output.js
         return { js, srcmap }
       output
@@ -379,31 +515,52 @@ jsExts = ->
 minify = (js, useropts = {}) ->
   opts =
     mangle: false
-    srcmap: null
+    srcmap: false
     outname: ''
+    inname: ''
+    staticRoot: ''
+    staticRootUrl: '/'
 
-  opts = _.extend opts, useropts
+  _.extend opts, useropts
 
-  top = uglify.parse js
+  parseopts = {}
+
+  if opts.inname?
+    parseopts.filename = opts.inname
+    if opts.srcmap? and opts.srcmap isnt false
+
+      inurl = getUrlPath opts.inname, opts.staticRoot, opts.staticRootUrl
+      outurl = getUrlPath opts.outname, opts.staticRoot, opts.staticRootUrl
+      inbn = path.basename inurl
+      outbn = path.basename outurl
+
+      parseopts.filename = inurl
+
+  top = uglify.parse js, parseopts
   top.figure_out_scope()
 
   # cmpd == compressed
-  cmpd = top.transform uglify.Compressor()
+  cmpd = top.transform uglify.Compressor
+    warnings: false
   cmpd.figure_out_scope()
 
   if opts.mangle
     cmpd.mangle_names()
     cmpd.figure_out_scope()
 
-  streamopts = {}
-  if opts.srcmap?
+  streamopts =
+    warnings: false
+  if opts.srcmap? and opts.srcmap isnt false
+
+    
     smopts =
-      file: opts.outname
+      file: "#{stripExt(outurl)}.min.js"
 
     if opts.srcmap isnt true and opts.srcmap isnt false
       # setting srcmap to true just makes us create an srcmap, otherwise, we're
       # passing one in from another compiler.
       smopts.orig = opts.srcmap
+
     sm = uglify.SourceMap smopts
     streamopts.source_map = sm
 
@@ -411,11 +568,25 @@ minify = (js, useropts = {}) ->
   cmpd.print stream
 
   js = stream.toString()
-  if opts.srcmap?
+  if opts.srcmap? and opts.srcmap isnt false
     srcmap = sm.toString()
+    if _.isString srcmap
+      srcmap = JSON.parse srcmap
+    # TODO: Look into uglify's source to figure out the correct way to get
+    # uglify to set this for non-compiled scripts
+    if opts.srcmap is true # Just a standard js file to be minified.
+      srcmap.sources = [inurl]
     return { js, srcmap }
 
   js
+
+
+getUrlPath = (absPath, absStaticRoot, staticRootUrl) ->
+  if absStaticRoot[absStaticRoot.length - 1] isnt '/'
+    absStaticRoot += '/'
+  if staticRootUrl[staticRootUrl.length - 1] isnt '/'
+    staticRootUrl += '/'
+  absPath.replace absStaticRoot, staticRootUrl
 
 
 sourceMapCat = (opts) ->
@@ -430,27 +601,29 @@ sourceMapCat = (opts) ->
 
   for _original in opts.maps
     original = new SourceMap.SourceMapConsumer _original
-
     # Last line of the current map source when eachMapping finishes
     originalLastLine = null
 
     original.eachMapping (mapping) ->
-      generated.addMapping(
-        generated:
-          line: combinedGeneratedLine + mapping.generatedLine
-          column: mapping.generatedColumn
-        original:
-          line: mapping.originalLine
-          column: mapping.originalColumn
-        source: mapping.source  # Original source file
-      )
+      try
+        generated.addMapping(
+          generated:
+            line: combinedGeneratedLine + mapping.generatedLine
+            column: mapping.generatedColumn
+          original:
+            line: mapping.originalLine
+            column: mapping.originalColumn
+          source: mapping.source  # Original source file
+        )
+      catch e
+        throw new Error "Invalid Mapping: #{JSON.stringify mapping}"
 
       originalLastLine = mapping.generatedLine
 
     # Add lines of the current map source file to our concatenated file
     combinedGeneratedLine += originalLastLine
 
-  return generated.toString()
+  return JSON.parse generated.toString()
 
 
 timeEq = (date1, date2) ->
