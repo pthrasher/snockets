@@ -1,4 +1,5 @@
 Snockets = require '../lib/snockets'
+path = require 'path'
 src = '../test/assets'
 snockets = new Snockets({src})
 
@@ -79,9 +80,9 @@ testSuite =
     snockets.getCompiledChain 'z.coffee', (err, chain) ->
       throw err if err
       test.deepEqual chain, [
-        {filename: 'x.js', js: '(function() {\n  "Double rainbow\\nSO INTENSE";\n}).call(this);\n'}
+        {filename: 'x.js', js: '(function() {\n  "Double rainbow\\nSO INTENSE";\n\n}).call(this);\n'}
         {filename: 'y.js', js: '//= require x'}
-        {filename: 'z.js', js: '(function() {\n\n}).call(this);\n'}
+        {filename: 'z.js', js: '(function() {\n\n\n}).call(this);\n'}
       ]
       test.done()
 
@@ -107,9 +108,9 @@ testSuite =
     snockets.getConcatenation 'z.coffee', (err, js1, changed) ->
       throw err if err
       test.equal js1, """
-        (function() {\n  "Double rainbow\\nSO INTENSE";\n}).call(this);\n
+        (function() {\n  "Double rainbow\\nSO INTENSE";\n\n}).call(this);\n
         //= require x
-        (function() {\n\n}).call(this);\n
+        (function() {\n\n\n}).call(this);\n
       """
       snockets.getConcatenation 'z.coffee', (err, js2, changed) ->
         throw err if err
@@ -121,7 +122,7 @@ testSuite =
     snockets.getConcatenation 'z.coffee', minify: true, (err, js) ->
       throw err if err
       test.equal js, """
-        (function(){"Double rainbow\\nSO INTENSE"}).call(this),function(){}.call(this)
+        (function(){"Double rainbow\\nSO INTENSE"}).call(this);\n\n(function(){}).call(this);
       """
       test.done()
 
@@ -136,6 +137,26 @@ testSuite =
         endTime = new Date
         test.ok endTime - startTime < 10
         test.done()
+
+  'getConcatenation returns correct minified JS code and srcmap': (test) ->
+    staticRoot = path.resolve snockets.options.src
+    target = path.resolve staticRoot, 'all.js'
+    snockets.options.srcmap = true
+    snockets.options.staticRoot = staticRoot
+    snockets.options.target = target
+    snockets.options.staticRootUrl = '/assets/'
+
+    snockets.getConcatenation 'z.coffee', minify: true, (err, result) ->
+      throw err if err
+      { js, srcmap } = result
+      test.equal js, """
+        (function(){"Double rainbow\\nSO INTENSE"}).call(this);\n\n(function(){}).call(this);
+      """
+      test.equal srcmap.file, "/assets/all.js"
+      test.equal srcmap.sources[0], "/assets/x.coffee"
+      test.equal srcmap.sources[1], "/assets/z.coffee"
+      test.equal srcmap.mappings, "AAAA;CAAA,CAAA,0BAAA;CAAA;ACGG;CAAA;CAAA"
+      test.done()
 
 # Every test runs both synchronously and asynchronously.
 for name, func of testSuite
