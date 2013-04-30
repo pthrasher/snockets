@@ -595,10 +595,15 @@ minify = (js, useropts = {}) ->
 
 
 getUrlPath = (absPath, absStaticRoot, staticRootUrl) ->
+  absPath = path.resolve path.normalize absPath
+  absStaticRoot = path.resolve path.normalize absStaticRoot
+
   if absStaticRoot[absStaticRoot.length - 1] isnt '/'
     absStaticRoot += '/'
+
   if staticRootUrl[staticRootUrl.length - 1] isnt '/'
     staticRootUrl += '/'
+
   absPath.replace absStaticRoot, staticRootUrl
 
 
