@@ -18,7 +18,6 @@
     "source-map": "~0.1.22"
   },
   "devDependencies": {
-    "coffee-script": "1.1.2",
     "nodeunit": "0.5.4",
     "watchit": ">=0.0.1"
   }

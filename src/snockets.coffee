@@ -214,6 +214,7 @@ module.exports = class Snockets
                 # pass existing srcmap to minifier.
                 minopts.srcmap = cached.srcmap
 
+              toMinify = cached.js.toString 'utf8'
               result = minify cached.js.toString('utf8'), minopts
 
               if doSrcMap
@@ -227,8 +228,10 @@ module.exports = class Snockets
                 _mindata = new Buffer result
                 sources.push result
 
+
               cached.minifiedData = _mindata
               cached.srcmap = _srcmap
+
 
           if cacheMiss
             concatenationChanged = true
@@ -243,6 +246,7 @@ module.exports = class Snockets
             _sources = _.pluck sources, 'js'
             _maps    = _.pluck sources, 'srcmap'
 
+
             catjs = _sources.join '\n'
             targetUrl = getUrlPath @options.target, @options.staticRoot, @options.staticRootUrl
             catmaps = sourceMapCat
@@ -254,6 +258,14 @@ module.exports = class Snockets
               srcmap: catmaps
       catch e
         if callback then return callback e else throw e
+
+      if not (doMinify and doSrcMap)
+        @concatCache[filePath].data = new Buffer concatenation
+      else if doMinify and not doSrcMap
+        @concatCache[filePath].minifiedData = new Buffer concatenation
+      else if doMinify and doSrcMap
+        @concatCache[filePath].minifiedData = new Buffer concatenation.js
+        @concatCache[filePath].srcmap = concatenation.srcmap
 
       callback? null, concatenation, concatenationChanged
       concatenation
@@ -392,15 +404,16 @@ module.exports = class Snockets
   compileFile: (filePath) ->
     if (ext = path.extname filePath) is '.js'
       @cache[filePath].js = @cache[filePath].data
-      false
+      return false
     else
       src = @cache[filePath].data.toString 'utf8'
+      pth = @absPath(filePath)
       js = compilers[ext[1..]].compileSync @absPath(filePath), src, @options
       unless _.isString js
         @cache[filePath].srcmap = js.srcmap
         js = js.js
       @cache[filePath].js = new Buffer(js)
-      true
+      return true
 
   absPath: (relPath) ->
     if relPath.match EXPLICIT_PATH
@@ -449,6 +462,7 @@ module.exports.compilers = compilers =
           sourceMap: true
           generatedFile: "#{stripExt outurl}.min.js"
           sourceFiles: [inurl]
+
 
       output = CoffeeScript.compile source, compileopts
       if opts.srcmap
@@ -548,15 +562,14 @@ minify = (js, useropts = {}) ->
     cmpd.mangle_names()
     cmpd.figure_out_scope()
 
-  streamopts =
-    warnings: false
-  if opts.srcmap? and opts.srcmap isnt false
+  streamopts = {}
+  if opts.srcmap isnt false
 
     
     smopts =
       file: "#{stripExt(outurl)}.min.js"
 
-    if opts.srcmap isnt true and opts.srcmap isnt false
+    if opts.srcmap isnt true
       # setting srcmap to true just makes us create an srcmap, otherwise, we're
       # passing one in from another compiler.
       smopts.orig = opts.srcmap
@@ -564,7 +577,7 @@ minify = (js, useropts = {}) ->
     sm = uglify.SourceMap smopts
     streamopts.source_map = sm
 
-  stream = uglify.OutputStream {}
+  stream = uglify.OutputStream streamopts
   cmpd.print stream
 
   js = stream.toString()
