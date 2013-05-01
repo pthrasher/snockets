@@ -106,16 +106,22 @@ module.exports = class Snockets
 
       doSrcMap = @options.srcmap
       doMinify = flags.minify
-      # if doSrcMap and not doMinify
-      #   # we can't do srcmaps without minification reliably.
-      #   # TODO: We *can* do this if every src in the chain is coffeescript, or
-      #   #       another transpiled language that supports source maps. However,
-      #   #       if some of the source is javascript, or the language doesn't
-      #   #       support generating source maps, we cannot reliably create
-      #   #       concatenated files that map properly. Or any source maps in the
-      #   #       chain are missing, we don't have a simple way of doing this.
-      #   doSrcMap = false
-      #   @warn "Disabling srcmap generation due to no minification. [#{filePath}]"
+      if doSrcMap and not doMinify
+        # we can't do srcmaps without minification reliably.
+        # TODO: We *can* do this if every src in the chain is coffeescript, or
+        #       another transpiled language that supports source maps. However,
+        #       if some of the source is javascript, or the language doesn't
+        #       support generating source maps, we cannot reliably create
+        #       concatenated files that map properly. Or any source maps in the
+        #       chain are missing, we don't have a simple way of doing this.
+        #
+        #       UPDATE: The real bug is that the line numbers are off when we
+        #               don't have source maps for the non-compiled /
+        #               non-minified files. The only time source maps work is
+        #               with minification. I added a fix for the line numbers,
+        #               but it appears to need tweaking.
+        doSrcMap = false
+        @warn "Disabling srcmap generation due to no minification. [#{filePath}]"
 
 
       # create the placeholder if it doesn't exist already.
@@ -166,9 +172,7 @@ module.exports = class Snockets
 
           sources = []
           for link in chain
-            console.log "compiling #{link}"
             isCompiled = @compileFile link
-            console.log "compiled #{link}"
 
             cached = @cache[link] # get a reference to the cache.
 
@@ -232,9 +236,7 @@ module.exports = class Snockets
                 # pass existing srcmap to minifier.
                 minopts.srcmap = cached.srcmap
 
-              console.log "getting js for #{link}"
               toMinify = cached.js.toString 'utf8'
-              console.log "got js for #{link}"
 
               if doMinify
                 result = minify toMinify, minopts
@@ -271,7 +273,6 @@ module.exports = class Snockets
               cached.srcmap = _srcmap
 
 
-          console.log 'done with chain'
           if cacheMiss
             concatenationChanged = true
           else
@@ -659,11 +660,8 @@ sourceMapCat = (opts) ->
   combinedGeneratedLine = 1
 
   for _original in opts.maps
-    console.log "processing map for #{_original.file}"
     if _original.empty? and _original.empty is true
-      console.log "empty map found for #{opts.filename}"
       combinedGeneratedLine += _original.numLines
-      console.log "#{_original.file} ends on line #{combinedGeneratedLine}"
       continue
 
     original = new SourceMap.SourceMapConsumer _original
