@@ -106,16 +106,16 @@ module.exports = class Snockets
 
       doSrcMap = @options.srcmap
       doMinify = flags.minify
-      if doSrcMap and not doMinify
-        # we can't do srcmaps without minification reliably.
-        # TODO: We *can* do this if every src in the chain is coffeescript, or
-        #       another transpiled language that supports source maps. However,
-        #       if some of the source is javascript, or the language doesn't
-        #       support generating source maps, we cannot reliably create
-        #       concatenated files that map properly. Or any source maps in the
-        #       chain are missing, we don't have a simple way of doing this.
-        doSrcMap = false
-        @warn "Disabling srcmap generation due to no minification. [#{filePath}]"
+      # if doSrcMap and not doMinify
+      #   # we can't do srcmaps without minification reliably.
+      #   # TODO: We *can* do this if every src in the chain is coffeescript, or
+      #   #       another transpiled language that supports source maps. However,
+      #   #       if some of the source is javascript, or the language doesn't
+      #   #       support generating source maps, we cannot reliably create
+      #   #       concatenated files that map properly. Or any source maps in the
+      #   #       chain are missing, we don't have a simple way of doing this.
+      #   doSrcMap = false
+      #   @warn "Disabling srcmap generation due to no minification. [#{filePath}]"
 
 
       # create the placeholder if it doesn't exist already.
@@ -166,7 +166,10 @@ module.exports = class Snockets
 
           sources = []
           for link in chain
+            console.log "compiling #{link}"
             isCompiled = @compileFile link
+            console.log "compiled #{link}"
+
             cached = @cache[link] # get a reference to the cache.
 
             # TODO: Find out what could possibly cause a file to not be cached
@@ -179,19 +182,34 @@ module.exports = class Snockets
 
             _cacheValid = false
             if not doMinify
-              _cacheValid = true if _hasJs
+              _cacheValid = if _hasJs then true else false
             if not doSrcMap and doMinify # not srcmapping, minifying
-              _cacheValid = true if _hasMinData
+              _cacheValid = if _hasMinData then true else false
+            if doSrcMap and not doMinify # we're srcmapping and not minifying
+              _cacheValid = if _hasSrcMap and _hasJs then true else false
             if doSrcMap and doMinify # we're srcmapping and minifying
-              _cacheValid = true if _hasSrcMap and _hasMinData
+              _cacheValid = if _hasSrcMap and _hasMinData then true else false
 
-            if _cacheValid and not doMinify
+            if _cacheValid and not doMinify and not doSrcMap
               sources.push cached.js.toString 'utf8'
             else if _cacheValid and doMinify and not doSrcMap
               sources.push cached.minifiedData.toString 'utf8'
             else if _cacheValid and doMinify and doSrcMap
               sources.push {
                 js: cached.minifiedData.toString 'utf8'
+                srcmap: cached.srcmap
+              }
+            else if _cacheValid and not doMinify and doSrcMap
+              js = cached.js.toString 'utf8'
+              unless cached.srcmap?
+                numLines = js.split(/\r\n|\r|\n/gm).length
+                cached.srcmap =
+                    empty: true
+                    numLines: numLines
+                    file: link
+
+              sources.push {
+                js: js
                 srcmap: cached.srcmap
               }
             else
@@ -214,8 +232,28 @@ module.exports = class Snockets
                 # pass existing srcmap to minifier.
                 minopts.srcmap = cached.srcmap
 
+              console.log "getting js for #{link}"
               toMinify = cached.js.toString 'utf8'
-              result = minify cached.js.toString('utf8'), minopts
+              console.log "got js for #{link}"
+
+              if doMinify
+                result = minify toMinify, minopts
+              else
+                if doSrcMap
+                  if isCompiled
+                    result =
+                      srcmap: cached.srcmap
+                      js: toMinify
+                  else
+                    numLines = toMinify.split(/\r\n|\r|\n/gm).length
+                    result =
+                      srcmap:
+                        empty: true
+                        numLines: numLines
+                        file: link
+                      js: toMinify
+                else
+                  result = toMinify
 
               if doSrcMap
                 _srcmap = result.srcmap
@@ -233,6 +271,7 @@ module.exports = class Snockets
               cached.srcmap = _srcmap
 
 
+          console.log 'done with chain'
           if cacheMiss
             concatenationChanged = true
           else
@@ -245,7 +284,6 @@ module.exports = class Snockets
             # We have to concatenate the source maps alongside the sources
             _sources = _.pluck sources, 'js'
             _maps    = _.pluck sources, 'srcmap'
-
 
             catjs = _sources.join '\n'
             targetUrl = getUrlPath @options.target, @options.staticRoot, @options.staticRootUrl
@@ -265,6 +303,9 @@ module.exports = class Snockets
         @concatCache[filePath].minifiedData = new Buffer concatenation
       else if doMinify and doSrcMap
         @concatCache[filePath].minifiedData = new Buffer concatenation.js
+        @concatCache[filePath].srcmap = concatenation.srcmap
+      else if not doMinify and doSrcMap
+        @concatCache[filePath].data = new Buffer concatenation.js
         @concatCache[filePath].srcmap = concatenation.srcmap
 
       callback? null, concatenation, concatenationChanged
@@ -615,9 +656,16 @@ sourceMapCat = (opts) ->
   })
 
   # Last line of the concatenated script so far
-  combinedGeneratedLine = 0
+  combinedGeneratedLine = 1
 
   for _original in opts.maps
+    console.log "processing map for #{_original.file}"
+    if _original.empty? and _original.empty is true
+      console.log "empty map found for #{opts.filename}"
+      combinedGeneratedLine += _original.numLines
+      console.log "#{_original.file} ends on line #{combinedGeneratedLine}"
+      continue
+
     original = new SourceMap.SourceMapConsumer _original
     # Last line of the current map source when eachMapping finishes
     originalLastLine = null
