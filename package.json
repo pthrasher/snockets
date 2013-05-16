@@ -31,6 +31,7 @@
     "source-map": "~0.1.22"
   },
   "scripts": {
+    "preinstall": "which grunt || npm i -g grunt-cli",
     "test": "grunt test"
   },
   "devDependencies": {
