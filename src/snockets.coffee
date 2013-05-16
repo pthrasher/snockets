@@ -1,14 +1,16 @@
 # vim:expandtab ts=2 sw=2
-# [snockets](http://github.com/TrevorBurnham/snockets)
+# [snockets](http://github.com/pthrasher/snockets)
 
 DepGraph = require 'dep-graph'
 SourceMap = require 'source-map'
 
-CoffeeScript = require 'coffee-script'
 fs           = require 'fs'
 path         = require 'path'
-uglify       = require 'uglify-js'
 _            = require 'underscore'
+
+{ minify } = require './minification'
+{ timeEq, getUrlPath  } = require './util'
+{ compilers, jsExts, stripExt } = require './compilers'
 
 module.exports = class Snockets
   constructor: (@options = {}) ->
@@ -480,44 +482,7 @@ module.exports = class Snockets
 
 # ## Compilers
 
-module.exports.compilers = compilers =
-  coffee:
-    match: /\.js$/
-    compileSync: (sourcePath, source, useropts = {}) ->
-      opts =
-        srcmap: false
-        staticRoot: ''
-        staticRootUrl: '/'
-      _.extend opts, useropts
-
-      compileopts =
-        filename: sourcePath
-
-      if opts.srcmap
-        outname = "#{sourcePath}.js"
-        inname = sourcePath
-
-        inurl = getUrlPath inname, opts.staticRoot, opts.staticRootUrl
-        outurl = getUrlPath outname, opts.staticRoot, opts.staticRootUrl
-        inbn = path.basename inurl
-        outbn = path.basename outurl
-
-        _.extend compileopts,
-          filename: outbn
-          sourceMap: true
-          generatedFile: "#{stripExt outurl}.min.js"
-          sourceFiles: [inurl]
-
-
-      output = CoffeeScript.compile source, compileopts
-      if opts.srcmap
-        srcmap = output.v3SourceMap
-        if _.isString srcmap
-          srcmap = JSON.parse srcmap
-        js = output.js
-        return { js, srcmap }
-      output
-
+module.exports.compilers = compilers
 # ## Regexes
 
 EXPLICIT_PATH = /^\/|:/
@@ -561,97 +526,6 @@ parseDirectives = (code) ->
   header = match[0]
   match[1] while match = DIRECTIVE.exec header
 
-stripExt = (filePath) ->
-  if path.extname(filePath) in jsExts()
-    filePath[0...filePath.lastIndexOf('.')]
-  else
-    filePath
-
-jsExts = ->
-  (".#{ext}" for ext of compilers).concat '.js'
-
-
-minify = (js, useropts = {}) ->
-  opts =
-    mangle: false
-    srcmap: false
-    outname: ''
-    inname: ''
-    staticRoot: ''
-    staticRootUrl: '/'
-
-  _.extend opts, useropts
-
-  parseopts = {}
-
-  if opts.inname?
-    parseopts.filename = opts.inname
-    if opts.srcmap? and opts.srcmap isnt false
-
-      inurl = getUrlPath opts.inname, opts.staticRoot, opts.staticRootUrl
-      outurl = getUrlPath opts.outname, opts.staticRoot, opts.staticRootUrl
-      inbn = path.basename inurl
-      outbn = path.basename outurl
-
-      parseopts.filename = inurl
-
-  top = uglify.parse js, parseopts
-  top.figure_out_scope()
-
-  # cmpd == compressed
-  cmpd = top.transform uglify.Compressor
-    warnings: false
-  cmpd.figure_out_scope()
-
-  if opts.mangle
-    cmpd.mangle_names()
-    cmpd.figure_out_scope()
-
-  streamopts = {}
-  if opts.srcmap isnt false
-
-
-    smopts =
-      file: "#{stripExt(outurl)}.min.js"
-
-    if opts.srcmap isnt true
-      # setting srcmap to true just makes us create an srcmap, otherwise, we're
-      # passing one in from another compiler.
-      smopts.orig = opts.srcmap
-
-    sm = uglify.SourceMap smopts
-    streamopts.source_map = sm
-
-  stream = uglify.OutputStream streamopts
-  cmpd.print stream
-
-  js = stream.toString()
-  if opts.srcmap? and opts.srcmap isnt false
-    srcmap = sm.toString()
-    if _.isString srcmap
-      srcmap = JSON.parse srcmap
-    # TODO: Look into uglify's source to figure out the correct way to get
-    # uglify to set this for non-compiled scripts
-    if opts.srcmap is true # Just a standard js file to be minified.
-      srcmap.sources = [inurl]
-    return { js, srcmap }
-
-  js
-
-
-getUrlPath = (absPath, absStaticRoot, staticRootUrl) ->
-  absPath = path.resolve path.normalize absPath
-  absStaticRoot = path.resolve path.normalize absStaticRoot
-
-  if absStaticRoot[absStaticRoot.length - 1] isnt '/'
-    absStaticRoot += '/'
-
-  if staticRootUrl[staticRootUrl.length - 1] isnt '/'
-    staticRootUrl += '/'
-
-  absPath.replace absStaticRoot, staticRootUrl
-
-
 sourceMapCat = (opts) ->
   generated = new SourceMap.SourceMapGenerator({
     # The filename of the generated source (output) that this source
@@ -692,5 +566,3 @@ sourceMapCat = (opts) ->
 
   return JSON.parse generated.toString()
 
-timeEq = (date1, date2) ->
-  date1? and date2? and date1.getTime() is date2.getTime()
