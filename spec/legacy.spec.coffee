@@ -139,20 +139,20 @@ describe 'Snockets Legacy API', ->
             ).toThrow()
 
     describe 'require_tree works for same directory', ->
-        expected = ['branch/edge.coffee', 'branch/periphery.js', 'branch/subbranch/leaf.js']
+        expected = ['branch/edge.coffee', 'branch/periphery.js', 'branch/subbranch/leaf.js'].sort()
 
         async.it 'async', (done) ->
             snockets.scan 'branch/center.coffee', (err) ->
                 expect(err).toBeFalsy()
                 chain = snockets.depGraph.getChain('branch/center.coffee')
-                expect(chain).toEqual expected
+                expect(chain.sort()).toEqual expected
                 done()
 
         it 'sync', ->
             snockets.options.async = false
             snockets.scan 'branch/center.coffee'
             chain = snockets.depGraph.getChain('branch/center.coffee')
-            expect(chain).toEqual expected
+            expect(chain.sort()).toEqual expected
 
     describe 'require works for includes that are relative to orig file using ../', ->
         async.it 'async', (done) ->
@@ -169,34 +169,34 @@ describe 'Snockets Legacy API', ->
             expect(chain).toEqual ['sybling/sybling.js']
 
     describe 'require_tree works for nested directories', ->
-        expectedChain = ['middleEarth/legolas.coffee', 'middleEarth/shire/bilbo.js', 'middleEarth/shire/frodo.coffee']
+        expectedChain = ['middleEarth/legolas.coffee', 'middleEarth/shire/bilbo.js', 'middleEarth/shire/frodo.coffee'].sort()
         async.it 'async', (done) ->
             snockets.scan 'fellowship.js', (err) ->
                 expect(err).toBeFalsy()
                 chain = snockets.depGraph.getChain('fellowship.js')
-                expect(chain).toEqual expectedChain
+                expect(chain.sort()).toEqual expectedChain
                 done()
 
         it 'sync', ->
             snockets.options.async = false
             snockets.scan 'fellowship.js'
             chain = snockets.depGraph.getChain('fellowship.js')
-            expect(chain).toEqual expectedChain
+            expect(chain.sort()).toEqual expectedChain
 
     describe 'require_tree works for redundant directories', ->
-        expectedChain = ['middleEarth/shire/bilbo.js', 'middleEarth/shire/frodo.coffee', 'middleEarth/legolas.coffee']
+        expectedChain = ['middleEarth/shire/bilbo.js', 'middleEarth/shire/frodo.coffee', 'middleEarth/legolas.coffee'].sort()
         async.it 'async', (done) ->
             snockets.scan 'trilogy.coffee', (err) ->
                 expect(err).toBeFalsy()
                 chain = snockets.depGraph.getChain('trilogy.coffee')
-                expect(chain).toEqual expectedChain
+                expect(chain.sort()).toEqual expectedChain
                 done()
 
         it 'sync', ->
             snockets.options.async = false
             snockets.scan 'trilogy.coffee'
             chain = snockets.depGraph.getChain('trilogy.coffee')
-            expect(chain).toEqual expectedChain
+            expect(chain.sort()).toEqual expectedChain
 
     describe 'getCompiledChain returns correct .js filenames and code', ->
         expectedChain = [
