@@ -7,47 +7,71 @@ src      = 'spec/assets'
 # Distributed under MIT license
 # http://github.com/derickbailey/jasmine.async
 runAsync = (block) ->
-	->
-		done = false
-		complete = ->
-			done = true
+    ->
+        done = false
+        complete = ->
+            done = true
 
-		runs ->
-			block complete
+        runs ->
+            block complete
 
-		waitsFor ->
-			done
+        waitsFor ->
+            done
 
 class AsyncSpec
-	constructor: (@spec) ->
+    constructor: (@spec) ->
 
-	beforeEach: (block) ->
-		@spec.beforeEach runAsync(block)
+    beforeEach: (block) ->
+        @spec.beforeEach runAsync(block)
 
-	afterEach: (block) ->
-		@spec.afterEach runAsync(block)
+    afterEach: (block) ->
+        @spec.afterEach runAsync(block)
 
-	it: (description, block) ->
-		global.it description, runAsync(block)
+    it: (description, block) ->
+        global.it description, runAsync(block)
 
 
 describe 'Snockets Legacy API', ->
 
-	snockets = null
-	async = new AsyncSpec(@)
+    snockets = null
+    async = new AsyncSpec(@)
 
-	beforeEach ->
-		snockets = new Snockets { src }
+    beforeEach ->
+        snockets = new Snockets { src }
 
-	afterEach ->
-		snockets = null
+    afterEach ->
+        snockets = null
 
-	async.it 'doesn\'t find dependencies for independant js files', (done) ->
+    describe 'doesn\'t find dependencies for independant js files', ->
+        async.it 'async', (done) ->
+            snockets.scan 'b.js', (err) ->
+                throw err if err
+                expect(snockets.depGraph.map['b.js']).toBeDefined()
+                expect(snockets.depGraph.getChain 'b.js').toEqual []
+                done()
 
-		snockets.scan 'b.js', (err) ->
-			throw err if err
-			expect(snockets.depGraph.map['b.js']).toBeDefined()
-			expect(snockets.depGraph.getChain 'b.js').toEqual []
-			done()
+        it 'sync', ->
+            snockets.options.async = false
+            snockets.scan 'b.js', ->
+            expect(snockets.depGraph.map['b.js']).toBeDefined()
+            expect(snockets.depGraph.getChain 'b.js').toEqual []
+
+    describe 'Single-step dependencies are correctly recorded', ->
+        async.it 'async', (done) ->
+            snockets.scan 'a.coffee', (err) ->
+                throw err if err
+                expect(snockets.depGraph.getChain('a.coffee')).toEqual ['b.js']
+                done()
+
+        it 'sync', ->
+            snockets.options.async = false
+            snockets.scan 'a.coffee', ->
+            expect(snockets.depGraph.getChain('a.coffee')).toEqual ['b.js']
+
+    xdescribe '', ->
+        async.it 'async', (done) ->
+
+        it 'sync', ->
+            snockets.options.async = false
 
 
