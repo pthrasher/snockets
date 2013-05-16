@@ -34,6 +34,9 @@
     "preinstall": "which grunt || npm i -g grunt-cli",
     "test": "grunt test"
   },
+  "engines": {
+    "node": ">=8.0.0"
+  }
   "devDependencies": {
     "grunt-bump": "0.0.2",
     "grunt-contrib-coffee": "~0.7.0",
