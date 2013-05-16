@@ -1,3 +1,4 @@
+
 # Snockets
 
 A JavaScript/CoffeeScript concatenation tool for Node.js inspired by [Sprockets](https://github.com/sstephenson/sprockets). Used by [connect-assets](http://github.com/TrevorBurnham/connect-assets) to create a Rails 3.1-style asset pipeline.
