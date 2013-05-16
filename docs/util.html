@@ -1,0 +1,101 @@
+<!DOCTYPE html>  <html> <head>   <title>util.coffee</title>   <meta http-equiv="content-type" content="text/html; charset=UTF-8">   <link rel="stylesheet" media="all" href="docco.css" /> </head> <body>   <div id="container">     <div id="background"></div>            <div id="jump_to">         Jump To &hellip;         <div id="jump_wrapper">           <div id="jump_page">                                           <a class="source" href="compilers.html">                 compilers.coffee               </a>                                           <a class="source" href="minification.html">                 minification.coffee               </a>                                           <a class="source" href="snockets.html">                 snockets.coffee               </a>                                           <a class="source" href="util.html">                 util.coffee               </a>                        </div>         </div>       </div>          <table cellpadding="0" cellspacing="0">       <thead>         <tr>           <th class="docs">             <h1>               util.coffee             </h1>           </th>           <th class="code">           </th>         </tr>       </thead>       <tbody>                               <tr id="section-1">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-1">&#182;</a>               </div>                            </td>             <td class="code">               <div class="highlight"><pre><span class="nv">path      = </span><span class="nx">require</span> <span class="s">&#39;path&#39;</span>
+<span class="nv">_         = </span><span class="nx">require</span> <span class="s">&#39;underscore&#39;</span>
+<span class="nv">SourceMap = </span><span class="nx">require</span> <span class="s">&#39;source-map&#39;</span>
+
+<span class="nv">EXPLICIT_PATH = </span><span class="sr">/^\/|:/</span>
+
+<span class="nv">HEADER = </span><span class="sr">///</span>
+<span class="sr">(?:</span>
+<span class="sr">    (\#\#\# .* \#\#\#\n*) |</span>
+<span class="sr">    (// .* \n*) |</span>
+<span class="sr">    (\# .* \n*)</span>
+<span class="sr">)+</span>
+<span class="sr">///</span>
+
+<span class="nv">DIRECTIVE = </span><span class="sr">///</span>
+<span class="sr">^[\W] *= \s* (\w+.*?) (\*\\/)?$</span>
+<span class="sr">///gm</span>
+
+<span class="nv">parseDirectives = </span><span class="nf">(code) -&gt;</span>
+    <span class="nv">code = </span><span class="nx">code</span><span class="p">.</span><span class="nx">replace</span> <span class="sr">/[\r\t ]+$/gm</span><span class="p">,</span> <span class="s">&#39;\n&#39;</span>    <span class="c1"># fix for issue #2</span>
+    <span class="k">return</span> <span class="p">[]</span> <span class="k">unless</span> <span class="nv">match = </span><span class="nx">HEADER</span><span class="p">.</span><span class="nx">exec</span><span class="p">(</span><span class="nx">code</span><span class="p">)</span>
+    <span class="nv">header = </span><span class="nx">match</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="nx">match</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">while</span> <span class="nv">match = </span><span class="nx">DIRECTIVE</span><span class="p">.</span><span class="nx">exec</span> <span class="nx">header</span>
+
+<span class="nv">timeEq = </span><span class="nf">(date1, date2) -&gt;</span>
+    <span class="nx">date1</span><span class="o">?</span> <span class="o">and</span> <span class="nx">date2</span><span class="o">?</span> <span class="o">and</span> <span class="nx">date1</span><span class="p">.</span><span class="nx">getTime</span><span class="p">()</span> <span class="o">is</span> <span class="nx">date2</span><span class="p">.</span><span class="nx">getTime</span><span class="p">()</span>
+
+
+<span class="nv">getUrlPath = </span><span class="nf">(absPath, absStaticRoot, staticRootUrl) -&gt;</span>
+    <span class="nv">absPath = </span><span class="nx">path</span><span class="p">.</span><span class="nx">resolve</span> <span class="nx">path</span><span class="p">.</span><span class="nx">normalize</span> <span class="nx">absPath</span>
+    <span class="nv">absStaticRoot = </span><span class="nx">path</span><span class="p">.</span><span class="nx">resolve</span> <span class="nx">path</span><span class="p">.</span><span class="nx">normalize</span> <span class="nx">absStaticRoot</span>
+
+    <span class="k">if</span> <span class="nx">absStaticRoot</span><span class="p">[</span><span class="nx">absStaticRoot</span><span class="p">.</span><span class="nx">length</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">isnt</span> <span class="s">&#39;/&#39;</span>
+        <span class="nx">absStaticRoot</span> <span class="o">+=</span> <span class="s">&#39;/&#39;</span>
+
+    <span class="k">if</span> <span class="nx">staticRootUrl</span><span class="p">[</span><span class="nx">staticRootUrl</span><span class="p">.</span><span class="nx">length</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">isnt</span> <span class="s">&#39;/&#39;</span>
+        <span class="nx">staticRootUrl</span> <span class="o">+=</span> <span class="s">&#39;/&#39;</span>
+
+    <span class="nx">absPath</span><span class="p">.</span><span class="nx">replace</span> <span class="nx">absStaticRoot</span><span class="p">,</span> <span class="nx">staticRootUrl</span>
+
+<span class="k">class</span> <span class="nx">HoldingQueue</span>
+    <span class="nv">constructor: </span><span class="nf">({@task, @onComplete}) -&gt;</span>
+        <span class="vi">@holdKeys = </span><span class="p">[]</span>
+    <span class="nv">waitFor: </span><span class="nf">(key) -&gt;</span>
+        <span class="nx">@holdKeys</span><span class="p">.</span><span class="nx">push</span> <span class="nx">key</span>
+    <span class="nv">unwaitFor: </span><span class="nf">(key) -&gt;</span>
+        <span class="vi">@holdKeys = </span><span class="nx">_</span><span class="p">.</span><span class="nx">without</span> <span class="nx">@holdKeys</span><span class="p">,</span> <span class="nx">key</span>
+    <span class="nv">perform: </span><span class="nf">(key, args...) -&gt;</span>
+        <span class="nx">@task</span> <span class="nx">args</span><span class="p">...,</span> <span class="o">=&gt;</span> <span class="nx">@unwaitFor</span> <span class="nx">key</span>
+    <span class="nv">finalize: </span><span class="nf">-&gt;</span>
+        <span class="k">if</span> <span class="nx">@holdKeys</span><span class="p">.</span><span class="nx">length</span> <span class="o">is</span> <span class="mi">0</span>
+            <span class="nx">@onComplete</span><span class="p">()</span>
+        <span class="k">else</span>
+            <span class="nv">h = </span><span class="nx">setInterval</span> <span class="p">(</span><span class="o">=&gt;</span>
+                <span class="k">if</span> <span class="nx">@holdKeys</span><span class="p">.</span><span class="nx">length</span> <span class="o">is</span> <span class="mi">0</span>
+                    <span class="nx">@onComplete</span><span class="p">()</span>
+                    <span class="nx">clearInterval</span> <span class="nx">h</span>
+            <span class="p">),</span> <span class="mi">10</span>
+
+<span class="nv">sourceMapCat = </span><span class="nf">(opts) -&gt;</span>
+    <span class="nv">generated = </span><span class="k">new</span> <span class="nx">SourceMap</span><span class="p">.</span><span class="nx">SourceMapGenerator</span><span class="p">({</span></pre></div>             </td>           </tr>                               <tr id="section-2">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-2">&#182;</a>               </div>               <p>The filename of the generated source (output) that this source
+map is associated with.</p>             </td>             <td class="code">               <div class="highlight"><pre>        <span class="nv">file: </span><span class="nx">opts</span><span class="p">.</span><span class="nx">filename</span>
+    <span class="p">})</span></pre></div>             </td>           </tr>                               <tr id="section-3">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-3">&#182;</a>               </div>               <p>Last line of the concatenated script so far</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">combinedGeneratedLine = </span><span class="mi">1</span>
+
+    <span class="k">for</span> <span class="nx">_original</span> <span class="k">in</span> <span class="nx">opts</span><span class="p">.</span><span class="nx">maps</span>
+        <span class="k">if</span> <span class="nx">_original</span><span class="p">.</span><span class="nx">empty</span><span class="o">?</span> <span class="o">and</span> <span class="nx">_original</span><span class="p">.</span><span class="nx">empty</span> <span class="o">is</span> <span class="kc">true</span>
+            <span class="nx">combinedGeneratedLine</span> <span class="o">+=</span> <span class="nx">_original</span><span class="p">.</span><span class="nx">numLines</span>
+            <span class="k">continue</span>
+
+        <span class="nv">original = </span><span class="k">new</span> <span class="nx">SourceMap</span><span class="p">.</span><span class="nx">SourceMapConsumer</span> <span class="nx">_original</span></pre></div>             </td>           </tr>                               <tr id="section-4">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-4">&#182;</a>               </div>               <p>Last line of the current map source when eachMapping finishes</p>             </td>             <td class="code">               <div class="highlight"><pre>        <span class="nv">originalLastLine = </span><span class="kc">null</span>
+
+        <span class="nx">original</span><span class="p">.</span><span class="nx">eachMapping</span> <span class="nf">(mapping) -&gt;</span>
+            <span class="k">try</span>
+                <span class="nx">generated</span><span class="p">.</span><span class="nx">addMapping</span><span class="p">(</span>
+                    <span class="nv">generated:</span>
+                        <span class="nv">line: </span><span class="nx">combinedGeneratedLine</span> <span class="o">+</span> <span class="nx">mapping</span><span class="p">.</span><span class="nx">generatedLine</span>
+                        <span class="nv">column: </span><span class="nx">mapping</span><span class="p">.</span><span class="nx">generatedColumn</span>
+                    <span class="nv">original:</span>
+                        <span class="nv">line: </span><span class="nx">mapping</span><span class="p">.</span><span class="nx">originalLine</span>
+                        <span class="nv">column: </span><span class="nx">mapping</span><span class="p">.</span><span class="nx">originalColumn</span>
+                    <span class="nv">source: </span><span class="nx">mapping</span><span class="p">.</span><span class="nx">source</span>    <span class="c1"># Original source file</span>
+                <span class="p">)</span>
+            <span class="k">catch</span> <span class="nx">e</span>
+                <span class="k">throw</span> <span class="k">new</span> <span class="nb">Error</span> <span class="s">&quot;Invalid Mapping: </span><span class="si">#{</span><span class="nx">JSON</span><span class="p">.</span><span class="nx">stringify</span> <span class="nx">mapping</span><span class="si">}</span><span class="s">&quot;</span>
+
+            <span class="nv">originalLastLine = </span><span class="nx">mapping</span><span class="p">.</span><span class="nx">generatedLine</span></pre></div>             </td>           </tr>                               <tr id="section-5">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-5">&#182;</a>               </div>               <p>Add lines of the current map source file to our concatenated file</p>             </td>             <td class="code">               <div class="highlight"><pre>        <span class="nx">combinedGeneratedLine</span> <span class="o">+=</span> <span class="nx">originalLastLine</span>
+
+    <span class="k">return</span> <span class="nx">JSON</span><span class="p">.</span><span class="nx">parse</span> <span class="nx">generated</span><span class="p">.</span><span class="nx">toString</span><span class="p">()</span>
+
+<span class="nv">module.exports = </span><span class="p">{</span>
+    <span class="nx">timeEq</span>
+    <span class="nx">getUrlPath</span>
+    <span class="nx">HoldingQueue</span>
+    <span class="nx">parseDirectives</span>
+    <span class="nx">sourceMapCat</span>
+    <span class="nx">EXPLICIT_PATH</span>
+    <span class="nx">DIRECTIVE</span>
+    <span class="nx">HEADER</span>
+<span class="p">}</span>
+
+</pre></div>             </td>           </tr>                </tbody>     </table>   </div> </body> </html> 

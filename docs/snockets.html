@@ -1,0 +1,434 @@
+<!DOCTYPE html>  <html> <head>   <title>snockets.coffee</title>   <meta http-equiv="content-type" content="text/html; charset=UTF-8">   <link rel="stylesheet" media="all" href="docco.css" /> </head> <body>   <div id="container">     <div id="background"></div>            <div id="jump_to">         Jump To &hellip;         <div id="jump_wrapper">           <div id="jump_page">                                           <a class="source" href="compilers.html">                 compilers.coffee               </a>                                           <a class="source" href="minification.html">                 minification.coffee               </a>                                           <a class="source" href="snockets.html">                 snockets.coffee               </a>                                           <a class="source" href="util.html">                 util.coffee               </a>                        </div>         </div>       </div>          <table cellpadding="0" cellspacing="0">       <thead>         <tr>           <th class="docs">             <h1>               snockets.coffee             </h1>           </th>           <th class="code">           </th>         </tr>       </thead>       <tbody>                               <tr id="section-1">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-1">&#182;</a>               </div>               <p><a href="http://github.com/pthrasher/snockets">snockets</a></p>             </td>             <td class="code">               <div class="highlight"><pre><span class="nv">DepGraph = </span><span class="nx">require</span> <span class="s">&#39;dep-graph&#39;</span>
+<span class="nv">fs           = </span><span class="nx">require</span> <span class="s">&#39;fs&#39;</span>
+<span class="nv">path         = </span><span class="nx">require</span> <span class="s">&#39;path&#39;</span>
+<span class="nv">_            = </span><span class="nx">require</span> <span class="s">&#39;underscore&#39;</span>
+
+
+<span class="p">{</span> <span class="nx">parseDirectives</span><span class="p">,</span> <span class="nx">HoldingQueue</span>
+    <span class="nx">timeEq</span><span class="p">,</span> <span class="nx">getUrlPath</span>
+    <span class="nx">sourceMapCat</span><span class="p">,</span> <span class="nx">EXPLICIT_PATH</span>
+    <span class="nx">DIRECTIVE</span><span class="p">,</span> <span class="nx">HEADER</span> <span class="p">}</span> <span class="o">=</span> <span class="nx">require</span> <span class="s">&#39;./util&#39;</span>
+<span class="p">{</span> <span class="nx">compilers</span><span class="p">,</span> <span class="nx">jsExts</span>
+    <span class="nx">stripExt</span> <span class="p">}</span>          <span class="o">=</span> <span class="nx">require</span> <span class="s">&#39;./compilers&#39;</span>
+<span class="p">{</span> <span class="nx">minify</span> <span class="p">}</span>              <span class="o">=</span> <span class="nx">require</span> <span class="s">&#39;./minification&#39;</span>
+
+
+<span class="k">class</span> <span class="nx">Snockets</span>
+    <span class="nv">constructor: </span><span class="nf">(@options = {}) -&gt;</span>
+        <span class="nx">@options</span><span class="p">.</span><span class="nx">srcmap</span> <span class="o">?=</span> <span class="kc">false</span>
+        <span class="nx">@options</span><span class="p">.</span><span class="nx">target</span> <span class="o">?=</span> <span class="kc">null</span>
+        <span class="nx">@options</span><span class="p">.</span><span class="nx">staticRoot</span> <span class="o">?=</span> <span class="kc">null</span>
+        <span class="nx">@options</span><span class="p">.</span><span class="nx">staticRootUrl</span> <span class="o">?=</span> <span class="s">&#39;/&#39;</span>
+        <span class="nx">@options</span><span class="p">.</span><span class="nx">src</span> <span class="o">?=</span> <span class="s">&#39;.&#39;</span>
+        <span class="nx">@options</span><span class="p">.</span><span class="nx">async</span> <span class="o">?=</span> <span class="kc">true</span>
+        <span class="vi">@cache = </span><span class="p">{}</span>
+        <span class="vi">@concatCache = </span><span class="p">{}</span>
+        <span class="vi">@depGraph = </span><span class="k">new</span> <span class="nx">DepGraph</span>
+        <span class="vi">@logLevels = </span><span class="p">[</span>
+            <span class="s">&#39;info&#39;</span>
+            <span class="s">&#39;warn&#39;</span>
+            <span class="s">&#39;debug&#39;</span>
+            <span class="s">&#39;error&#39;</span>
+        <span class="p">]</span></pre></div>             </td>           </tr>                               <tr id="section-2">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-2">&#182;</a>               </div>               <p>If the user wants srcmaps, we need to know a few other things first in
+order to adequately fill out info within them. If this info isn't
+provided, we cannot proceed.</p>             </td>             <td class="code">               <div class="highlight"><pre>        <span class="k">if</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">srcmap</span>
+            <span class="k">unless</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">staticRoot</span><span class="o">?</span> <span class="o">or</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">target</span><span class="o">?</span>
+                <span class="k">if</span> <span class="o">not</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">staticRoot</span><span class="o">?</span> <span class="o">and</span> <span class="o">not</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">target</span><span class="o">?</span>
+                    <span class="nv">errorStr = </span><span class="s">&quot;both of the options &#39;staticRoot&#39; and &#39;target&#39;&quot;</span>
+                <span class="k">else</span> <span class="k">if</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">staticRoot</span><span class="o">?</span> <span class="o">and</span> <span class="o">not</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">target</span><span class="o">?</span>
+                    <span class="nv">errorStr = </span><span class="s">&quot;&#39;target&#39; option&quot;</span>
+                <span class="k">else</span> <span class="k">if</span> <span class="o">not</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">staticRoot</span><span class="o">?</span> <span class="o">and</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">target</span><span class="o">?</span>
+                    <span class="nv">errorStr = </span><span class="s">&quot;&#39;staticRoot&#39; option&quot;</span>
+                <span class="k">throw</span> <span class="k">new</span> <span class="nb">Error</span><span class="p">(</span><span class="s">&quot;When generating source maps</span>
+<span class="s">                                                 </span><span class="si">#{</span><span class="nx">errorStr</span><span class="si">}</span><span class="s"> must be provided.&quot;</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-3">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-3">&#182;</a>               </div>               <h2>Logging methods</h2>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">log: </span><span class="nf">(args, level) -&gt;</span>
+        <span class="k">if</span> <span class="nx">_</span><span class="p">.</span><span class="nx">contains</span><span class="p">(</span><span class="nx">@logLevels</span><span class="p">,</span> <span class="nx">level</span><span class="p">)</span>
+            <span class="nx">console</span><span class="p">.</span><span class="nx">log</span><span class="p">.</span><span class="nx">apply</span> <span class="nx">console</span><span class="p">,</span> <span class="nx">args</span>
+
+    <span class="nv">info: </span><span class="nf">(args...) =&gt;</span> <span class="nx">@log</span> <span class="nx">args</span><span class="p">,</span> <span class="s">&#39;info&#39;</span>
+    <span class="nv">warn: </span><span class="nf">(args...) =&gt;</span> <span class="nx">@log</span> <span class="nx">args</span><span class="p">,</span> <span class="s">&#39;warn&#39;</span>
+    <span class="nv">debug: </span><span class="nf">(args...) =&gt;</span> <span class="nx">@log</span> <span class="nx">args</span><span class="p">,</span> <span class="s">&#39;debug&#39;</span>
+    <span class="nv">error: </span><span class="nf">(args...) =&gt;</span> <span class="nx">@log</span> <span class="nx">args</span><span class="p">,</span> <span class="s">&#39;error&#39;</span></pre></div>             </td>           </tr>                               <tr id="section-4">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-4">&#182;</a>               </div>               <h2>Public methods</h2>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">scan: </span><span class="nf">(filePath, flags, callback) -&gt;</span>
+        <span class="k">if</span> <span class="k">typeof</span> <span class="nx">flags</span> <span class="o">is</span> <span class="s">&#39;function&#39;</span>
+            <span class="nv">callback = </span><span class="nx">flags</span><span class="p">;</span> <span class="nv">flags = </span><span class="p">{}</span>
+        <span class="nx">flags</span> <span class="o">?=</span> <span class="p">{}</span>
+        <span class="nx">flags</span><span class="p">.</span><span class="nx">async</span> <span class="o">?=</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">async</span>
+
+        <span class="nx">@updateDirectives</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="nf">(err, graphChanged) =&gt;</span>
+            <span class="k">if</span> <span class="nx">err</span>
+                <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">err</span>
+            <span class="nx">callback</span><span class="o">?</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">@depGraph</span><span class="p">,</span> <span class="nx">graphChanged</span>
+            <span class="nx">@depGraph</span>
+
+    <span class="nv">getCompiledChain: </span><span class="nf">(filePath, flags, callback) -&gt;</span>
+        <span class="k">if</span> <span class="k">typeof</span> <span class="nx">flags</span> <span class="o">is</span> <span class="s">&#39;function&#39;</span>
+            <span class="nv">callback = </span><span class="nx">flags</span><span class="p">;</span> <span class="nv">flags = </span><span class="p">{}</span>
+        <span class="nx">flags</span> <span class="o">?=</span> <span class="p">{}</span>
+        <span class="nx">flags</span><span class="p">.</span><span class="nx">async</span> <span class="o">?=</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">async</span>
+
+        <span class="nx">@updateDirectives</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="nf">(err, graphChanged) =&gt;</span>
+            <span class="k">if</span> <span class="nx">err</span>
+                <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">err</span>
+            <span class="k">try</span>
+                <span class="nv">chain = </span><span class="nx">@depGraph</span><span class="p">.</span><span class="nx">getChain</span> <span class="nx">filePath</span>
+            <span class="k">catch</span> <span class="nx">e</span>
+                <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="k">return</span> <span class="nx">callback</span> <span class="nx">e</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">e</span>
+
+            <span class="nv">compiledChain = </span><span class="k">for</span> <span class="nx">link</span> <span class="k">in</span> <span class="nx">chain</span><span class="p">.</span><span class="nx">concat</span> <span class="nx">filePath</span>
+                <span class="nv">o = </span><span class="p">{}</span>
+                <span class="k">if</span> <span class="nx">@compileFile</span> <span class="nx">link</span>
+                    <span class="nv">o.filename = </span><span class="nx">stripExt</span><span class="p">(</span><span class="nx">link</span><span class="p">)</span> <span class="o">+</span> <span class="s">&#39;.js&#39;</span>
+                <span class="k">else</span>
+                    <span class="nv">o.filename = </span><span class="nx">link</span>
+                <span class="nv">o.js = </span><span class="nx">@cache</span><span class="p">[</span><span class="nx">link</span><span class="p">].</span><span class="nx">js</span><span class="p">.</span><span class="nx">toString</span> <span class="s">&#39;utf8&#39;</span>
+                <span class="nx">o</span>
+
+            <span class="nx">callback</span><span class="o">?</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">compiledChain</span><span class="p">,</span> <span class="nx">graphChanged</span>
+            <span class="nx">compiledChain</span>
+
+    <span class="nv">getConcatenation: </span><span class="nf">(filePath, flags, callback) -&gt;</span>
+        <span class="k">if</span> <span class="k">typeof</span> <span class="nx">flags</span> <span class="o">is</span> <span class="s">&#39;function&#39;</span>
+            <span class="nv">callback = </span><span class="nx">flags</span><span class="p">;</span> <span class="nv">flags = </span><span class="p">{}</span>
+        <span class="nx">flags</span> <span class="o">?=</span> <span class="p">{}</span>
+        <span class="nx">flags</span><span class="p">.</span><span class="nx">async</span> <span class="o">?=</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">async</span>
+        <span class="nv">concatenationChanged = </span><span class="kc">true</span>
+
+        <span class="nx">@updateDirectives</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="nf">(err, graphChanged) =&gt;</span></pre></div>             </td>           </tr>                               <tr id="section-5">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-5">&#182;</a>               </div>               <p>fail fast</p>             </td>             <td class="code">               <div class="highlight"><pre>            <span class="k">if</span> <span class="nx">err</span>
+                <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">err</span>
+                <span class="k">return</span>
+
+            <span class="nv">doSrcMap = </span><span class="nx">@options</span><span class="p">.</span><span class="nx">srcmap</span>
+            <span class="nv">doMinify = </span><span class="nx">flags</span><span class="p">.</span><span class="nx">minify</span>
+            <span class="k">if</span> <span class="nx">doSrcMap</span> <span class="o">and</span> <span class="o">not</span> <span class="nx">doMinify</span></pre></div>             </td>           </tr>                               <tr id="section-6">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-6">&#182;</a>               </div>               <p>we can't do srcmaps without minification reliably.
+TODO: We <em>can</em> do this if every src in the chain is
+      coffeescript, or another transpiled language that
+      supports source maps. However, if some of the source is
+      javascript, or the language doesn't support generating
+      source maps, we cannot reliably create concatenated
+      files that map properly. Or any source maps in the
+      chain are missing, we don't have a simple way of doing
+      this.</p>
+
+<p>UPDATE: The real bug is that the line numbers are off when we
+      don't have source maps for the non-compiled /
+      non-minified files. The only time source maps work is
+      with minification. I added a fix for the line numbers,
+      but it appears to need tweaking.</p>             </td>             <td class="code">               <div class="highlight"><pre>                <span class="nv">doSrcMap = </span><span class="kc">false</span>
+                <span class="nx">@warn</span> <span class="s">&quot;Disabling srcmap generation</span>
+<span class="s">                    due to no minification. [</span><span class="si">#{</span><span class="nx">filePath</span><span class="si">}</span><span class="s">]&quot;</span></pre></div>             </td>           </tr>                               <tr id="section-7">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-7">&#182;</a>               </div>               <p>create the placeholder if it doesn't exist already.</p>             </td>             <td class="code">               <div class="highlight"><pre>            <span class="k">unless</span> <span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span><span class="o">?</span>
+                <span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span></pre></div>             </td>           </tr>                               <tr id="section-8">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-8">&#182;</a>               </div>               <p>Don't trust the cache</p>             </td>             <td class="code">               <div class="highlight"><pre>            <span class="nv">cacheValid = </span><span class="kc">false</span>
+            <span class="nv">hasData        = </span><span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nx">data</span><span class="o">?</span>
+            <span class="nv">hasMinData = </span><span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nx">minifiedData</span><span class="o">?</span>
+            <span class="nv">hasSrcMap    = </span><span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nx">srcmap</span><span class="o">?</span></pre></div>             </td>           </tr>                               <tr id="section-9">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-9">&#182;</a>               </div>               <p>Attempt to validate the cache.</p>             </td>             <td class="code">               <div class="highlight"><pre>            <span class="k">if</span> <span class="o">not</span> <span class="p">(</span><span class="nx">doSrcMap</span> <span class="o">or</span> <span class="nx">doMinify</span><span class="p">)</span> <span class="c1"># not srcmapping, not minifying</span>
+                <span class="nv">cacheValid = </span><span class="kc">true</span> <span class="k">if</span> <span class="nx">hasData</span>
+            <span class="k">if</span> <span class="o">not</span> <span class="nx">doSrcMap</span> <span class="o">and</span> <span class="nx">doMinify</span> <span class="c1"># not srcmapping, minifying</span>
+                <span class="nv">cacheValid = </span><span class="k">if</span> <span class="nx">hasMinData</span> <span class="k">then</span> <span class="kc">true</span> <span class="k">else</span> <span class="kc">false</span>
+            <span class="k">if</span> <span class="nx">doSrcMap</span> <span class="o">and</span> <span class="nx">doMinify</span> <span class="c1"># we&#39;re srcmapping and minifying</span>
+                <span class="nv">cacheValid = </span><span class="kc">true</span> <span class="k">if</span> <span class="nx">hasSrcMap</span> <span class="o">and</span> <span class="nx">hasMinData</span></pre></div>             </td>           </tr>                               <tr id="section-10">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-10">&#182;</a>               </div>               <p>We should now have a rough, early overview as to whether or not
+the cache is valid, as well as what sorts of things need to be
+generated below.</p>             </td>             <td class="code">               <div class="highlight"><pre>            <span class="k">try</span>
+                <span class="k">if</span> <span class="nx">cacheValid</span> <span class="o">and</span> <span class="o">not</span> <span class="nx">doMinify</span></pre></div>             </td>           </tr>                               <tr id="section-11">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-11">&#182;</a>               </div>               <p>We have a valid cache, and we're not minifying.</p>             </td>             <td class="code">               <div class="highlight"><pre>                    <span class="nv">concatenation = </span><span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nx">data</span><span class="p">.</span><span class="nx">toString</span> <span class="s">&#39;utf8&#39;</span>
+                    <span class="nv">concatenationChanged = </span><span class="kc">false</span>
+                <span class="k">else</span> <span class="k">if</span> <span class="nx">cacheValid</span> <span class="o">and</span> <span class="nx">doMinify</span> <span class="o">and</span> <span class="o">not</span> <span class="nx">doSrcMap</span>
+                    <span class="nv">concatenation = </span><span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span>
+                        <span class="p">.</span><span class="nx">minifiedData</span><span class="p">.</span><span class="nx">toString</span> <span class="s">&#39;utf8&#39;</span>
+                    <span class="nv">concatenationChanged = </span><span class="kc">false</span>
+                <span class="k">else</span> <span class="k">if</span> <span class="nx">cacheValid</span> <span class="o">and</span> <span class="nx">doMinify</span> <span class="o">and</span> <span class="nx">doSrcMap</span>
+                    <span class="nv">js = </span><span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nx">minifiedData</span><span class="p">.</span><span class="nx">toString</span> <span class="s">&#39;utf8&#39;</span>
+                    <span class="nv">srcmap = </span><span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nx">srcmap</span>
+                    <span class="nv">concatenation = </span><span class="p">{</span>
+                        <span class="nx">js</span>
+                        <span class="nx">srcmap</span>
+                    <span class="p">}</span>
+                    <span class="nv">concatenationChanged = </span><span class="kc">false</span>
+                <span class="k">else</span>
+                    <span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nv">maps = </span><span class="p">{}</span></pre></div>             </td>           </tr>                               <tr id="section-12">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-12">&#182;</a>               </div>               <p>append the src file to the end of it's own dependency list</p>             </td>             <td class="code">               <div class="highlight"><pre>                    <span class="nv">chain = </span><span class="nx">@depGraph</span><span class="p">.</span><span class="nx">getChain</span><span class="p">(</span><span class="nx">filePath</span><span class="p">).</span><span class="nx">concat</span> <span class="nx">filePath</span></pre></div>             </td>           </tr>                               <tr id="section-13">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-13">&#182;</a>               </div>               <p>keep track of whether or not anything was regenerated.</p>             </td>             <td class="code">               <div class="highlight"><pre>                    <span class="nv">cacheMiss = </span><span class="kc">false</span>
+
+                    <span class="nv">sources = </span><span class="p">[]</span>
+                    <span class="k">for</span> <span class="nx">link</span> <span class="k">in</span> <span class="nx">chain</span>
+                        <span class="nv">isCompiled = </span><span class="nx">@compileFile</span> <span class="nx">link</span>
+
+                        <span class="nv">cached = </span><span class="nx">@cache</span><span class="p">[</span><span class="nx">link</span><span class="p">]</span> <span class="c1"># get a reference to the cache.</span></pre></div>             </td>           </tr>                               <tr id="section-14">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-14">&#182;</a>               </div>               <p>TODO: Find out what could possibly cause a file to
+      not be cached at this point..</p>             </td>             <td class="code">               <div class="highlight"><pre>                        <span class="k">continue</span> <span class="k">unless</span> <span class="nx">cached</span><span class="o">?</span>
+
+                        <span class="nv">_hasJs            = </span><span class="nx">cached</span><span class="p">.</span><span class="nx">js</span><span class="o">?</span>
+                        <span class="nv">_hasMinData = </span><span class="nx">cached</span><span class="p">.</span><span class="nx">minifiedData</span><span class="o">?</span>
+                        <span class="nv">_hasSrcMap    = </span><span class="nx">cached</span><span class="p">.</span><span class="nx">srcmap</span><span class="o">?</span>
+
+                        <span class="nv">_cacheValid = </span><span class="kc">false</span>
+                        <span class="k">if</span> <span class="o">not</span> <span class="nx">doMinify</span>
+                            <span class="nv">_cacheValid =</span>
+                                <span class="k">if</span> <span class="nx">_hasJs</span> <span class="k">then</span> <span class="kc">true</span> <span class="k">else</span> <span class="kc">false</span>
+                        <span class="k">if</span> <span class="o">not</span> <span class="nx">doSrcMap</span> <span class="o">and</span> <span class="nx">doMinify</span></pre></div>             </td>           </tr>                               <tr id="section-15">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-15">&#182;</a>               </div>               <p>not srcmapping, minifying</p>             </td>             <td class="code">               <div class="highlight"><pre>                            <span class="nv">_cacheValid =</span>
+                                <span class="k">if</span> <span class="nx">_hasMinData</span> <span class="k">then</span> <span class="kc">true</span> <span class="k">else</span> <span class="kc">false</span>
+                        <span class="k">if</span> <span class="nx">doSrcMap</span> <span class="o">and</span> <span class="o">not</span> <span class="nx">doMinify</span></pre></div>             </td>           </tr>                               <tr id="section-16">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-16">&#182;</a>               </div>               <p>we're srcmapping and not minifying</p>             </td>             <td class="code">               <div class="highlight"><pre>                            <span class="nv">_cacheValid =</span>
+                                <span class="k">if</span> <span class="nx">_hasSrcMap</span> <span class="o">and</span> <span class="nx">_hasJs</span> <span class="k">then</span> <span class="kc">true</span> <span class="k">else</span> <span class="kc">false</span>
+                        <span class="k">if</span> <span class="nx">doSrcMap</span> <span class="o">and</span> <span class="nx">doMinify</span></pre></div>             </td>           </tr>                               <tr id="section-17">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-17">&#182;</a>               </div>               <p>we're srcmapping and minifying</p>             </td>             <td class="code">               <div class="highlight"><pre>                            <span class="k">if</span> <span class="nx">_hasSrcMap</span> <span class="o">and</span> <span class="nx">_hasMinData</span>
+                                <span class="nv">_cacheValid = </span><span class="kc">true</span>
+                            <span class="k">else</span>
+                                <span class="kc">false</span>
+
+                        <span class="k">if</span> <span class="nx">_cacheValid</span> <span class="o">and</span> <span class="o">not</span> <span class="nx">doMinify</span> <span class="o">and</span> <span class="o">not</span> <span class="nx">doSrcMap</span>
+                            <span class="nx">sources</span><span class="p">.</span><span class="nx">push</span> <span class="nx">cached</span><span class="p">.</span><span class="nx">js</span><span class="p">.</span><span class="nx">toString</span> <span class="s">&#39;utf8&#39;</span>
+                        <span class="k">else</span> <span class="k">if</span> <span class="nx">_cacheValid</span> <span class="o">and</span> <span class="nx">doMinify</span> <span class="o">and</span> <span class="o">not</span> <span class="nx">doSrcMap</span>
+                            <span class="nx">sources</span><span class="p">.</span><span class="nx">push</span> <span class="nx">cached</span><span class="p">.</span><span class="nx">minifiedData</span><span class="p">.</span><span class="nx">toString</span> <span class="s">&#39;utf8&#39;</span>
+                        <span class="k">else</span> <span class="k">if</span> <span class="nx">_cacheValid</span> <span class="o">and</span> <span class="nx">doMinify</span> <span class="o">and</span> <span class="nx">doSrcMap</span>
+                            <span class="nx">sources</span><span class="p">.</span><span class="nx">push</span> <span class="p">{</span>
+                                <span class="nv">js: </span><span class="nx">cached</span><span class="p">.</span><span class="nx">minifiedData</span><span class="p">.</span><span class="nx">toString</span> <span class="s">&#39;utf8&#39;</span>
+                                <span class="nv">srcmap: </span><span class="nx">cached</span><span class="p">.</span><span class="nx">srcmap</span>
+                            <span class="p">}</span>
+                        <span class="k">else</span> <span class="k">if</span> <span class="nx">_cacheValid</span> <span class="o">and</span> <span class="o">not</span> <span class="nx">doMinify</span> <span class="o">and</span> <span class="nx">doSrcMap</span>
+                            <span class="nv">js = </span><span class="nx">cached</span><span class="p">.</span><span class="nx">js</span><span class="p">.</span><span class="nx">toString</span> <span class="s">&#39;utf8&#39;</span>
+                            <span class="k">unless</span> <span class="nx">cached</span><span class="p">.</span><span class="nx">srcmap</span><span class="o">?</span>
+                                <span class="nv">numLines = </span><span class="nx">js</span><span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="sr">/\r\n|\r|\n/gm</span><span class="p">).</span><span class="nx">length</span>
+                                <span class="nv">cached.srcmap =</span>
+                                        <span class="nv">empty: </span><span class="kc">true</span>
+                                        <span class="nv">numLines: </span><span class="nx">numLines</span>
+                                        <span class="nv">file: </span><span class="nx">link</span>
+
+                            <span class="nx">sources</span><span class="p">.</span><span class="nx">push</span> <span class="p">{</span>
+                                <span class="nv">js: </span><span class="nx">js</span>
+                                <span class="nv">srcmap: </span><span class="nx">cached</span><span class="p">.</span><span class="nx">srcmap</span>
+                            <span class="p">}</span>
+                        <span class="k">else</span></pre></div>             </td>           </tr>                               <tr id="section-18">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-18">&#182;</a>               </div>               <p>CACHE MISS
+Do minification / sourcemapping</p>             </td>             <td class="code">               <div class="highlight"><pre>                            <span class="nv">cacheMiss = </span><span class="kc">true</span>
+                            <span class="nv">_srcmap = </span><span class="kc">null</span>
+                            <span class="nv">_mindata = </span><span class="kc">null</span>
+
+                            <span class="nv">minopts = </span><span class="p">{}</span>
+                            <span class="k">if</span> <span class="nx">doSrcMap</span>
+                                <span class="nv">absLink = </span><span class="nx">path</span><span class="p">.</span><span class="nx">resolve</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">src</span><span class="p">,</span> <span class="nx">link</span>
+                                <span class="nv">minopts.outname = </span><span class="s">&quot;</span><span class="si">#{</span><span class="nx">stripExt</span><span class="p">(</span><span class="nx">absLink</span><span class="p">)</span><span class="si">}</span><span class="s">.js&quot;</span>
+                                <span class="nv">minopts.srcmap = </span><span class="kc">true</span>
+                                <span class="nv">minopts.inname = </span><span class="nx">absLink</span>
+                                <span class="nv">minopts.staticRoot = </span><span class="nx">@options</span><span class="p">.</span><span class="nx">staticRoot</span>
+                                <span class="nv">minopts.staticRootUrl = </span><span class="nx">@options</span><span class="p">.</span><span class="nx">staticRootUrl</span>
+
+                            <span class="k">if</span> <span class="nx">isCompiled</span> <span class="o">and</span> <span class="nx">_hasSrcMap</span> <span class="o">and</span> <span class="nx">doSrcMap</span></pre></div>             </td>           </tr>                               <tr id="section-19">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-19">&#182;</a>               </div>               <p>pass existing srcmap to minifier.</p>             </td>             <td class="code">               <div class="highlight"><pre>                                <span class="nv">minopts.srcmap = </span><span class="nx">cached</span><span class="p">.</span><span class="nx">srcmap</span>
+
+                            <span class="nv">toMinify = </span><span class="nx">cached</span><span class="p">.</span><span class="nx">js</span><span class="p">.</span><span class="nx">toString</span> <span class="s">&#39;utf8&#39;</span>
+
+                            <span class="k">if</span> <span class="nx">doMinify</span>
+                                <span class="nv">result = </span><span class="nx">minify</span> <span class="nx">toMinify</span><span class="p">,</span> <span class="nx">minopts</span>
+                            <span class="k">else</span>
+                                <span class="k">if</span> <span class="nx">doSrcMap</span>
+                                    <span class="k">if</span> <span class="nx">isCompiled</span>
+                                        <span class="nv">result =</span>
+                                            <span class="nv">srcmap: </span><span class="nx">cached</span><span class="p">.</span><span class="nx">srcmap</span>
+                                            <span class="nv">js: </span><span class="nx">toMinify</span>
+                                    <span class="k">else</span>
+                                        <span class="nv">numLines = </span><span class="nx">toMinify</span>
+                                            <span class="p">.</span><span class="nx">split</span><span class="p">(</span><span class="sr">/\r\n|\r|\n/gm</span><span class="p">).</span><span class="nx">length</span>
+                                        <span class="nv">result =</span>
+                                            <span class="nv">srcmap:</span>
+                                                <span class="nv">empty: </span><span class="kc">true</span>
+                                                <span class="nv">numLines: </span><span class="nx">numLines</span>
+                                                <span class="nv">file: </span><span class="nx">link</span>
+                                            <span class="nv">js: </span><span class="nx">toMinify</span>
+                                <span class="k">else</span>
+                                    <span class="nv">result = </span><span class="nx">toMinify</span>
+
+                            <span class="k">if</span> <span class="nx">doSrcMap</span>
+                                <span class="nv">_srcmap = </span><span class="nx">result</span><span class="p">.</span><span class="nx">srcmap</span>
+                                <span class="nv">_mindata = </span><span class="k">new</span> <span class="nx">Buffer</span> <span class="nx">result</span><span class="p">.</span><span class="nx">js</span>
+                                <span class="nx">sources</span><span class="p">.</span><span class="nx">push</span> <span class="p">{</span>
+                                    <span class="nv">srcmap: </span><span class="nx">_srcmap</span>
+                                    <span class="nv">js: </span><span class="nx">result</span><span class="p">.</span><span class="nx">js</span>
+                                <span class="p">}</span>
+                            <span class="k">else</span>
+                                <span class="nv">_mindata = </span><span class="k">new</span> <span class="nx">Buffer</span> <span class="nx">result</span>
+                                <span class="nx">sources</span><span class="p">.</span><span class="nx">push</span> <span class="nx">result</span>
+
+
+                            <span class="nv">cached.minifiedData = </span><span class="nx">_mindata</span>
+                            <span class="nv">cached.srcmap = </span><span class="nx">_srcmap</span>
+
+
+                    <span class="k">if</span> <span class="nx">cacheMiss</span>
+                        <span class="nv">concatenationChanged = </span><span class="kc">true</span>
+                    <span class="k">else</span>
+                        <span class="nv">concatenationChanged = </span><span class="kc">false</span></pre></div>             </td>           </tr>                               <tr id="section-20">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-20">&#182;</a>               </div>               <p>Concatenate the aggregated sources</p>             </td>             <td class="code">               <div class="highlight"><pre>                    <span class="k">if</span> <span class="o">not</span> <span class="nx">doSrcMap</span>
+                        <span class="nv">concatenation = </span><span class="nx">sources</span><span class="p">.</span><span class="nx">join</span> <span class="s">&#39;\n&#39;</span>
+                    <span class="k">else</span></pre></div>             </td>           </tr>                               <tr id="section-21">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-21">&#182;</a>               </div>               <p>We have to concatenate the source maps alongside the
+sources</p>             </td>             <td class="code">               <div class="highlight"><pre>                        <span class="nv">_sources = </span><span class="nx">_</span><span class="p">.</span><span class="nx">pluck</span> <span class="nx">sources</span><span class="p">,</span> <span class="s">&#39;js&#39;</span>
+                        <span class="nv">_maps        = </span><span class="nx">_</span><span class="p">.</span><span class="nx">pluck</span> <span class="nx">sources</span><span class="p">,</span> <span class="s">&#39;srcmap&#39;</span>
+
+                        <span class="nv">catjs = </span><span class="nx">_sources</span><span class="p">.</span><span class="nx">join</span> <span class="s">&#39;\n&#39;</span>
+                        <span class="nv">targetUrl = </span><span class="nx">getUrlPath</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">target</span><span class="p">,</span>
+                            <span class="nx">@options</span><span class="p">.</span><span class="nx">staticRoot</span><span class="p">,</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">staticRootUrl</span>
+                        <span class="nv">catmaps = </span><span class="nx">sourceMapCat</span>
+                            <span class="nv">filename: </span><span class="nx">targetUrl</span>
+                            <span class="nv">maps: </span><span class="nx">_maps</span>
+
+                        <span class="nv">concatenation =</span>
+                            <span class="nv">js: </span><span class="nx">catjs</span>
+                            <span class="nv">srcmap: </span><span class="nx">catmaps</span>
+            <span class="k">catch</span> <span class="nx">_err</span>
+                <span class="k">throw</span> <span class="nx">_err</span></pre></div>             </td>           </tr>                               <tr id="section-22">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-22">&#182;</a>               </div>               <p>if callback then return callback _err else throw _err</p>             </td>             <td class="code">               <div class="highlight"><pre>                <span class="k">return</span>
+
+            <span class="k">if</span> <span class="o">not</span> <span class="p">(</span><span class="nx">doMinify</span> <span class="o">or</span> <span class="nx">doSrcMap</span><span class="p">)</span>
+                <span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nv">data = </span><span class="k">new</span> <span class="nx">Buffer</span> <span class="nx">concatenation</span>
+            <span class="k">else</span> <span class="k">if</span> <span class="nx">doMinify</span> <span class="o">and</span> <span class="o">not</span> <span class="nx">doSrcMap</span>
+                <span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nv">minifiedData = </span><span class="k">new</span> <span class="nx">Buffer</span> <span class="nx">concatenation</span>
+            <span class="k">else</span> <span class="k">if</span> <span class="nx">doMinify</span> <span class="o">and</span> <span class="nx">doSrcMap</span>
+                <span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nv">minifiedData =</span>
+                    <span class="k">new</span> <span class="nx">Buffer</span> <span class="nx">concatenation</span><span class="p">.</span><span class="nx">js</span>
+                <span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nv">srcmap = </span><span class="nx">concatenation</span><span class="p">.</span><span class="nx">srcmap</span>
+            <span class="k">else</span> <span class="k">if</span> <span class="o">not</span> <span class="nx">doMinify</span> <span class="o">and</span> <span class="nx">doSrcMap</span>
+                <span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nv">data = </span><span class="k">new</span> <span class="nx">Buffer</span> <span class="nx">concatenation</span><span class="p">.</span><span class="nx">js</span>
+                <span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nv">srcmap = </span><span class="nx">concatenation</span><span class="p">.</span><span class="nx">srcmap</span>
+
+            <span class="nx">callback</span><span class="o">?</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">concatenation</span><span class="p">,</span> <span class="nx">concatenationChanged</span>
+            <span class="nx">concatenation</span></pre></div>             </td>           </tr>                               <tr id="section-23">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-23">&#182;</a>               </div>               <h2>Internal methods</h2>             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-24">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-24">&#182;</a>               </div>               <p>Interprets the directives from the given file to update <code>@depGraph</code>.</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">updateDirectives: </span><span class="nf">(filePath, flags, excludes..., callback) -&gt;</span>
+        <span class="k">return</span> <span class="nx">callback</span><span class="p">()</span> <span class="k">if</span> <span class="nx">filePath</span> <span class="k">in</span> <span class="nx">excludes</span>
+        <span class="nx">excludes</span><span class="p">.</span><span class="nx">push</span> <span class="nx">filePath</span>
+
+        <span class="nv">depList = </span><span class="p">[]</span>
+        <span class="nv">graphChanged = </span><span class="kc">false</span>
+        <span class="nv">q = </span><span class="k">new</span> <span class="nx">HoldingQueue</span>
+            <span class="nv">task: </span><span class="nf">(depPath, next) =&gt;</span>
+                <span class="k">return</span> <span class="nx">next</span><span class="p">()</span> <span class="k">unless</span> <span class="nx">path</span><span class="p">.</span><span class="nx">extname</span><span class="p">(</span><span class="nx">depPath</span><span class="p">)</span> <span class="k">in</span> <span class="nx">jsExts</span><span class="p">()</span>
+                <span class="k">if</span> <span class="nx">depPath</span> <span class="o">is</span> <span class="nx">filePath</span>
+                    <span class="nv">err = </span><span class="k">new</span> <span class="nb">Error</span><span class="p">(</span><span class="s">&quot;Script tries to require</span>
+<span class="s">                        itself: </span><span class="si">#{</span><span class="nx">filePath</span><span class="si">}</span><span class="s">&quot;</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span>
+                <span class="k">unless</span> <span class="nx">depPath</span> <span class="k">in</span> <span class="nx">depList</span>
+                    <span class="nx">depList</span><span class="p">.</span><span class="nx">push</span> <span class="nx">depPath</span>
+                <span class="nx">@updateDirectives</span> <span class="nx">depPath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="nx">excludes</span><span class="p">...,</span>
+                    <span class="nf">(err, depChanged) -&gt;</span>
+                        <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
+                        <span class="nx">graphChanged</span> <span class="o">or=</span> <span class="nx">depChanged</span>
+                        <span class="nx">next</span><span class="p">()</span>
+            <span class="nv">onComplete: </span><span class="o">=&gt;</span>
+                <span class="k">unless</span> <span class="nx">_</span><span class="p">.</span><span class="nx">isEqual</span> <span class="nx">depList</span> <span class="p">,</span> <span class="nx">@depGraph</span><span class="p">.</span><span class="nx">map</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span>
+                    <span class="nx">@depGraph</span><span class="p">.</span><span class="nx">map</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span> <span class="o">=</span> <span class="nx">depList</span>
+                    <span class="nv">graphChanged = </span><span class="kc">true</span>
+                <span class="k">if</span> <span class="nx">graphChanged</span>
+                    <span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span> <span class="o">=</span> <span class="kc">null</span>
+                <span class="nx">callback</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">graphChanged</span>
+
+        <span class="nv">require = </span><span class="nf">(relPath) =&gt;</span>
+            <span class="nx">q</span><span class="p">.</span><span class="nx">waitFor</span> <span class="nv">relName = </span><span class="nx">stripExt</span> <span class="nx">relPath</span>
+            <span class="k">if</span> <span class="nx">relName</span><span class="p">.</span><span class="nx">match</span> <span class="nx">EXPLICIT_PATH</span>
+                <span class="nv">depPath = </span><span class="nx">relName</span> <span class="o">+</span> <span class="s">&#39;.js&#39;</span>
+                <span class="nx">q</span><span class="p">.</span><span class="nx">perform</span> <span class="nx">relName</span><span class="p">,</span> <span class="nx">depPath</span>
+            <span class="k">else</span>
+                <span class="nv">depName = </span><span class="nx">@joinPath</span> <span class="nx">path</span><span class="p">.</span><span class="nx">dirname</span><span class="p">(</span><span class="nx">filePath</span><span class="p">),</span> <span class="nx">relName</span>
+                <span class="nx">@findMatchingFile</span> <span class="nx">depName</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="nf">(err, depPath) -&gt;</span>
+                    <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
+                    <span class="nx">q</span><span class="p">.</span><span class="nx">perform</span> <span class="nx">relName</span><span class="p">,</span> <span class="nx">depPath</span>
+
+        <span class="nv">requireTree = </span><span class="nf">(dirName) =&gt;</span>
+            <span class="nx">q</span><span class="p">.</span><span class="nx">waitFor</span> <span class="nx">dirName</span>
+            <span class="nx">@readdir</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">dirName</span><span class="p">),</span> <span class="nx">flags</span><span class="p">,</span> <span class="nf">(err, items) =&gt;</span>
+                <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
+                <span class="nx">q</span><span class="p">.</span><span class="nx">unwaitFor</span> <span class="nx">dirName</span>
+                <span class="k">for</span> <span class="nx">item</span> <span class="k">in</span> <span class="nx">items</span>
+                    <span class="nv">itemPath = </span><span class="nx">@joinPath</span> <span class="nx">dirName</span><span class="p">,</span> <span class="nx">item</span>
+                    <span class="k">continue</span> <span class="k">if</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">itemPath</span><span class="p">)</span> <span class="o">is</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">filePath</span><span class="p">)</span>
+                    <span class="nx">q</span><span class="p">.</span><span class="nx">waitFor</span> <span class="nx">itemPath</span>
+                    <span class="nx">do</span> <span class="nf">(itemPath) =&gt;</span>
+                        <span class="nx">@stat</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">itemPath</span><span class="p">),</span> <span class="nx">flags</span><span class="p">,</span> <span class="nf">(err, stats) =&gt;</span>
+                            <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
+                            <span class="k">if</span> <span class="nx">stats</span><span class="p">.</span><span class="nx">isFile</span><span class="p">()</span>
+                                <span class="nx">q</span><span class="p">.</span><span class="nx">perform</span> <span class="nx">itemPath</span><span class="p">,</span> <span class="nx">itemPath</span>
+                            <span class="k">else</span>
+                                <span class="nx">requireTree</span> <span class="nx">itemPath</span>
+                                <span class="nx">q</span><span class="p">.</span><span class="nx">unwaitFor</span> <span class="nx">itemPath</span>
+
+        <span class="nx">@readFile</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="nf">(err, fileChanged) =&gt;</span>
+            <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
+            <span class="k">if</span> <span class="nx">fileChanged</span> <span class="k">then</span> <span class="nv">graphChanged = </span><span class="kc">true</span>
+            <span class="nv">_content = </span><span class="nx">@cache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nx">data</span><span class="p">.</span><span class="nx">toString</span> <span class="s">&#39;utf8&#39;</span>
+            <span class="k">for</span> <span class="nx">directive</span> <span class="k">in</span> <span class="nx">parseDirectives</span> <span class="nx">_content</span>
+                <span class="nv">words = </span><span class="nx">directive</span><span class="p">.</span><span class="nx">replace</span><span class="p">(</span><span class="sr">/[&#39;&quot;]/g</span><span class="p">,</span> <span class="s">&#39;&#39;</span><span class="p">).</span><span class="nx">split</span> <span class="sr">/\s+/</span>
+                <span class="p">[</span><span class="nx">command</span><span class="p">,</span> <span class="nx">relPaths</span><span class="p">...]</span> <span class="o">=</span> <span class="nx">words</span>
+
+                <span class="k">switch</span> <span class="nx">command</span>
+                    <span class="k">when</span> <span class="s">&#39;require&#39;</span>
+                        <span class="nx">require</span> <span class="nx">relPath</span> <span class="k">for</span> <span class="nx">relPath</span> <span class="k">in</span> <span class="nx">relPaths</span>
+                    <span class="k">when</span> <span class="s">&#39;require_tree&#39;</span>
+                        <span class="k">for</span> <span class="nx">relPath</span> <span class="k">in</span> <span class="nx">relPaths</span>
+                            <span class="nx">requireTree</span> <span class="nx">@joinPath</span> <span class="nx">path</span><span class="p">.</span><span class="nx">dirname</span><span class="p">(</span><span class="nx">filePath</span><span class="p">),</span>
+                                <span class="nx">relPath</span>
+
+            <span class="nx">q</span><span class="p">.</span><span class="nx">finalize</span><span class="p">()</span></pre></div>             </td>           </tr>                               <tr id="section-25">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-25">&#182;</a>               </div>               <p>Searches for a file with the given name (no extension, e.g. <code>'foo/bar'</code>)</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">findMatchingFile: </span><span class="nf">(filename, flags, callback) -&gt;</span>
+        <span class="nv">tryFiles = </span><span class="nf">(filePaths) =&gt;</span>
+            <span class="k">for</span> <span class="nx">filePath</span> <span class="k">in</span> <span class="nx">filePaths</span>
+                <span class="k">if</span> <span class="nx">stripExt</span><span class="p">(</span><span class="nx">@absPath</span> <span class="nx">filePath</span><span class="p">)</span> <span class="o">is</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">filename</span><span class="p">)</span>
+                    <span class="nx">callback</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">filePath</span>
+                    <span class="k">return</span> <span class="kc">true</span>
+
+        <span class="k">return</span> <span class="k">if</span> <span class="nx">tryFiles</span> <span class="nx">_</span><span class="p">.</span><span class="nx">keys</span> <span class="nx">@cache</span>
+        <span class="nx">@readdir</span> <span class="nx">path</span><span class="p">.</span><span class="nx">dirname</span><span class="p">(</span><span class="nx">@absPath</span> <span class="nx">filename</span><span class="p">),</span> <span class="nx">flags</span><span class="p">,</span> <span class="nf">(err, files) =&gt;</span>
+            <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
+            <span class="k">return</span> <span class="k">if</span> <span class="nx">tryFiles</span> <span class="p">(</span><span class="k">for</span> <span class="nx">file</span> <span class="k">in</span> <span class="nx">files</span>
+                <span class="nx">@joinPath</span> <span class="nx">path</span><span class="p">.</span><span class="nx">dirname</span><span class="p">(</span><span class="nx">filename</span><span class="p">),</span> <span class="nx">file</span>
+            <span class="p">)</span>
+            <span class="nx">callback</span> <span class="k">new</span> <span class="nb">Error</span><span class="p">(</span><span class="s">&quot;File not found: &#39;</span><span class="si">#{</span><span class="nx">filename</span><span class="si">}</span><span class="s">&#39;&quot;</span><span class="p">)</span></pre></div>             </td>           </tr>                               <tr id="section-26">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-26">&#182;</a>               </div>               <p>Wrapper around fs.readdir or fs.readdirSync, depending on flags.async.</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">readdir: </span><span class="nf">(dir, flags, callback) -&gt;</span>
+        <span class="k">if</span> <span class="nx">flags</span><span class="p">.</span><span class="nx">async</span>
+            <span class="nx">fs</span><span class="p">.</span><span class="nx">readdir</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">dir</span><span class="p">),</span> <span class="nx">callback</span>
+        <span class="k">else</span>
+            <span class="k">try</span>
+                <span class="nv">files = </span><span class="nx">fs</span><span class="p">.</span><span class="nx">readdirSync</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">dir</span><span class="p">)</span>
+                <span class="nx">callback</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">files</span>
+            <span class="k">catch</span> <span class="nx">e</span>
+                <span class="nx">callback</span> <span class="nx">e</span></pre></div>             </td>           </tr>                               <tr id="section-27">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-27">&#182;</a>               </div>               <p>Wrapper around fs.stat or fs.statSync, depending on flags.async.</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">stat: </span><span class="nf">(filePath, flags, callback) -&gt;</span>
+        <span class="k">if</span> <span class="nx">flags</span><span class="p">.</span><span class="nx">async</span>
+            <span class="nx">fs</span><span class="p">.</span><span class="nx">stat</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">filePath</span><span class="p">),</span> <span class="nx">callback</span>
+        <span class="k">else</span>
+            <span class="k">try</span>
+                <span class="nv">stats = </span><span class="nx">fs</span><span class="p">.</span><span class="nx">statSync</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">filePath</span><span class="p">)</span>
+                <span class="nx">callback</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">stats</span>
+            <span class="k">catch</span> <span class="nx">e</span>
+                <span class="nx">callback</span> <span class="nx">e</span></pre></div>             </td>           </tr>                               <tr id="section-28">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-28">&#182;</a>               </div>               <p>Reads a file's data and timestamp into the cache.</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">readFile: </span><span class="nf">(filePath, flags, callback) -&gt;</span>
+        <span class="nx">@stat</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="nf">(err, stats) =&gt;</span>
+            <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
+            <span class="k">if</span> <span class="nx">timeEq</span> <span class="nx">@cache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span><span class="o">?</span><span class="p">.</span><span class="nx">mtime</span><span class="p">,</span> <span class="nx">stats</span><span class="p">.</span><span class="nx">mtime</span>
+                <span class="k">return</span> <span class="nx">callback</span> <span class="kc">null</span><span class="p">,</span> <span class="kc">false</span>
+            <span class="k">if</span> <span class="nx">flags</span><span class="p">.</span><span class="nx">async</span>
+                <span class="nx">fs</span><span class="p">.</span><span class="nx">readFile</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">filePath</span><span class="p">),</span> <span class="nf">(err, data) =&gt;</span>
+                    <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
+                    <span class="nx">@cache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="nv">mtime: </span><span class="nx">stats</span><span class="p">.</span><span class="nx">mtime</span><span class="p">,</span> <span class="nx">data</span><span class="p">}</span>
+                    <span class="nx">callback</span> <span class="kc">null</span><span class="p">,</span> <span class="kc">true</span>
+            <span class="k">else</span>
+                <span class="k">try</span>
+                    <span class="nv">data = </span><span class="nx">fs</span><span class="p">.</span><span class="nx">readFileSync</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">filePath</span><span class="p">)</span>
+                    <span class="nx">@cache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="nv">mtime: </span><span class="nx">stats</span><span class="p">.</span><span class="nx">mtime</span><span class="p">,</span> <span class="nx">data</span><span class="p">}</span>
+                    <span class="nx">callback</span> <span class="kc">null</span><span class="p">,</span> <span class="kc">true</span>
+                <span class="k">catch</span> <span class="nx">e</span>
+                    <span class="nx">callback</span> <span class="nx">e</span>
+
+    <span class="nv">compileFile: </span><span class="nf">(filePath) -&gt;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nv">ext = </span><span class="nx">path</span><span class="p">.</span><span class="nx">extname</span> <span class="nx">filePath</span><span class="p">)</span> <span class="o">is</span> <span class="s">&#39;.js&#39;</span>
+            <span class="nx">@cache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nv">js = </span><span class="nx">@cache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nx">data</span>
+            <span class="k">return</span> <span class="kc">false</span>
+        <span class="k">else</span>
+            <span class="nv">src = </span><span class="nx">@cache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nx">data</span><span class="p">.</span><span class="nx">toString</span> <span class="s">&#39;utf8&#39;</span>
+            <span class="nv">pth = </span><span class="nx">@absPath</span><span class="p">(</span><span class="nx">filePath</span><span class="p">)</span>
+            <span class="nv">js = </span><span class="nx">compilers</span><span class="p">[</span><span class="nx">ext</span><span class="p">[</span><span class="mi">1</span><span class="p">..]].</span><span class="nx">compileSync</span> <span class="nx">@absPath</span><span class="p">(</span><span class="nx">filePath</span><span class="p">),</span> <span class="nx">src</span><span class="p">,</span>
+                <span class="nx">@options</span>
+            <span class="k">unless</span> <span class="nx">_</span><span class="p">.</span><span class="nx">isString</span> <span class="nx">js</span>
+                <span class="nx">@cache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nv">srcmap = </span><span class="nx">js</span><span class="p">.</span><span class="nx">srcmap</span>
+                <span class="nv">js = </span><span class="nx">js</span><span class="p">.</span><span class="nx">js</span>
+            <span class="nx">@cache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nv">js = </span><span class="k">new</span> <span class="nx">Buffer</span><span class="p">(</span><span class="nx">js</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">true</span>
+
+    <span class="nv">absPath: </span><span class="nf">(relPath) -&gt;</span>
+        <span class="k">if</span> <span class="nx">relPath</span><span class="p">.</span><span class="nx">match</span> <span class="nx">EXPLICIT_PATH</span>
+            <span class="nx">relPath</span>
+        <span class="k">else</span> <span class="k">if</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">src</span><span class="p">.</span><span class="nx">match</span> <span class="nx">EXPLICIT_PATH</span>
+            <span class="nx">@joinPath</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">src</span><span class="p">,</span> <span class="nx">relPath</span>
+        <span class="k">else</span>
+            <span class="nx">@joinPath</span> <span class="nx">process</span><span class="p">.</span><span class="nx">cwd</span><span class="p">(),</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">src</span><span class="p">,</span> <span class="nx">relPath</span>
+
+    <span class="nv">joinPath: </span><span class="nf">-&gt;</span>
+        <span class="nv">filePath = </span><span class="nx">path</span><span class="p">.</span><span class="nx">join</span><span class="p">.</span><span class="nx">apply</span> <span class="nx">path</span><span class="p">,</span> <span class="nx">arguments</span></pre></div>             </td>           </tr>                               <tr id="section-29">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-29">&#182;</a>               </div>               <p>Replace backslashes with forward slashes for Windows compatability</p>             </td>             <td class="code">               <div class="highlight"><pre>        <span class="k">if</span> <span class="nx">process</span><span class="p">.</span><span class="nx">platform</span> <span class="o">is</span> <span class="s">&#39;win32&#39;</span>
+            <span class="nv">slash = </span><span class="s">&#39;/&#39;</span> <span class="c1"># / on the same line as the regex breaks ST2</span></pre></div>             </td>           </tr>                               <tr id="section-30">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-30">&#182;</a>               </div>               <p>syntax highlight.</p>             </td>             <td class="code">               <div class="highlight"><pre>            <span class="nx">filePath</span><span class="p">.</span><span class="nx">replace</span> <span class="sr">/\\/g</span><span class="p">,</span> <span class="nx">slash</span>
+        <span class="k">else</span>
+            <span class="nx">filePath</span>
+
+
+<span class="nv">module.exports = </span><span class="nx">Snockets</span>
+<span class="nv">module.exports.compilers = </span><span class="nx">compilers</span>
+
+</pre></div>             </td>           </tr>                </tbody>     </table>   </div> </body> </html> 
