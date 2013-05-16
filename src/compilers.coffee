@@ -1,7 +1,7 @@
-CoffeeScript = require 'coffee-script'
 _              = require 'underscore'
+path           = require 'path'
+CoffeeScript   = require 'coffee-script'
 { getUrlPath } = require './util'
-path = require 'path'
 
 jsExts = ->
   (".#{ext}" for ext of compilers).concat '.js'

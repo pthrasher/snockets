@@ -1,18 +1,21 @@
-# vim:expandtab ts=2 sw=2
 # [snockets](http://github.com/pthrasher/snockets)
 
 DepGraph = require 'dep-graph'
-SourceMap = require 'source-map'
-
 fs           = require 'fs'
 path         = require 'path'
 _            = require 'underscore'
 
-{ minify } = require './minification'
-{ timeEq, getUrlPath  } = require './util'
-{ compilers, jsExts, stripExt } = require './compilers'
 
-module.exports = class Snockets
+{ parseDirectives, HoldingQueue
+    timeEq, getUrlPath
+    sourceMapCat, EXPLICIT_PATH
+    DIRECTIVE, HEADER } = require './util'
+{ compilers, jsExts
+    stripExt }          = require './compilers'
+{ minify }              = require './minification'
+
+
+class Snockets
   constructor: (@options = {}) ->
     @options.srcmap ?= false
     @options.target ?= null
@@ -480,89 +483,6 @@ module.exports = class Snockets
     else
       filePath
 
-# ## Compilers
 
+module.exports = Snockets
 module.exports.compilers = compilers
-# ## Regexes
-
-EXPLICIT_PATH = /^\/|:/
-
-HEADER = ///
-(?:
-  (\#\#\# .* \#\#\#\n*) |
-  (// .* \n*) |
-  (\# .* \n*)
-)+
-///
-
-DIRECTIVE = ///
-^[\W] *= \s* (\w+.*?) (\*\\/)?$
-///gm
-
-# ## Utility functions
-
-class HoldingQueue
-  constructor: ({@task, @onComplete}) ->
-    @holdKeys = []
-  waitFor: (key) ->
-    @holdKeys.push key
-  unwaitFor: (key) ->
-    @holdKeys = _.without @holdKeys, key
-  perform: (key, args...) ->
-    @task args..., => @unwaitFor key
-  finalize: ->
-    if @holdKeys.length is 0
-      @onComplete()
-    else
-      h = setInterval (=>
-        if @holdKeys.length is 0
-          @onComplete()
-          clearInterval h
-      ), 10
-
-parseDirectives = (code) ->
-  code = code.replace /[\r\t ]+$/gm, '\n'  # fix for issue #2
-  return [] unless match = HEADER.exec(code)
-  header = match[0]
-  match[1] while match = DIRECTIVE.exec header
-
-sourceMapCat = (opts) ->
-  generated = new SourceMap.SourceMapGenerator({
-    # The filename of the generated source (output) that this source
-    # map is associated with.
-    file: opts.filename
-  })
-
-  # Last line of the concatenated script so far
-  combinedGeneratedLine = 1
-
-  for _original in opts.maps
-    if _original.empty? and _original.empty is true
-      combinedGeneratedLine += _original.numLines
-      continue
-
-    original = new SourceMap.SourceMapConsumer _original
-    # Last line of the current map source when eachMapping finishes
-    originalLastLine = null
-
-    original.eachMapping (mapping) ->
-      try
-        generated.addMapping(
-          generated:
-            line: combinedGeneratedLine + mapping.generatedLine
-            column: mapping.generatedColumn
-          original:
-            line: mapping.originalLine
-            column: mapping.originalColumn
-          source: mapping.source  # Original source file
-        )
-      catch e
-        throw new Error "Invalid Mapping: #{JSON.stringify mapping}"
-
-      originalLastLine = mapping.generatedLine
-
-    # Add lines of the current map source file to our concatenated file
-    combinedGeneratedLine += originalLastLine
-
-  return JSON.parse generated.toString()
-

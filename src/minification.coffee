@@ -1,7 +1,7 @@
-path           = require 'path'
-uglify         = require 'uglify-js'
-_              = require 'underscore'
-{ getUrlPath } = require './util'
+path                    = require 'path'
+uglify                  = require 'uglify-js'
+_                       = require 'underscore'
+{ getUrlPath }          = require './util'
 { compilers, stripExt } = require './compilers'
 
 minify = (js, useropts = {}) ->
