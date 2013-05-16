@@ -1,9 +1,26 @@
 
 # Snockets
 
+[![Build Status](https://travis-ci.org/pthrasher/snockets.png?branch=develop)](https://travis-ci.org/pthrasher/snockets)
+
 A JavaScript/CoffeeScript concatenation tool for Node.js inspired by [Sprockets](https://github.com/sstephenson/sprockets). Used by [connect-assets](http://github.com/TrevorBurnham/connect-assets) to create a Rails 3.1-style asset pipeline.
 
 Written in CoffeeScript by the author of [CoffeeScript: Accelerated JavaScript Development](http://pragprog.com/book/tbcoffee/coffeescript).
+
+# The state of the package
+
+As of May 1st, 2013, [@pthrasher](https://github.com/pthrasher) became the maintainer of this package. It was taken over from [@TrevorBurnham](https://github.com/TrevorBurnham).
+
+Since taking over, the following items have been addressed.
+
+*  Source-map support
+*  Move tests from node-unit over to jasmine.
+*  Break out pieces into separate files.
+*  More tests
+*  More documentation
+
+You can track my progress on these tasks via Pull Request [#43](https://github.com/pthrasher/snockets/pull/43)
+
 
 ## Usage (script-side)
 
@@ -49,13 +66,3 @@ Note that you don't need to `scan` before or after running `getCompiledChain` or
 By default, Snockets uses only async file methods. You can pass the option `async: false` to either of its methods if you want it to be synchronous instead. In synchronous mode, you can use either callbacks or return values, e.g.
 
     js = snockets.getConcatenation 'dir/foo.coffee', async: false
-
-## License
-
-©2011 Trevor Burnham and available under the [MIT license](http://www.opensource.org/licenses/mit-license.php):
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
