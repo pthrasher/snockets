@@ -1,3 +1,4 @@
+
 Snockets = require '../lib/snockets'
 path = require 'path'
 src = '../test/assets'

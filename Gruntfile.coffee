@@ -41,7 +41,7 @@ module.exports = (grunt) ->
     grunt.registerTask 'default',
         ['coffeelint', 'coffee', 'jasmine_node', 'docco']
     grunt.registerTask 'test',
-        ['coffeelint', 'coffee', 'jasmine_node']
+        ['coffee', 'jasmine_node']
     grunt.registerTask 'prepare',
         ['coffeelint', 'coffee', 'jasmine_node', 'docco', 'bump']
     grunt.registerTask 'force',
