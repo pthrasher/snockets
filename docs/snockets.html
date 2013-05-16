@@ -53,7 +53,7 @@ provided, we cannot proceed.</p>             </td>             <td class="code">
         <span class="nx">flags</span> <span class="o">?=</span> <span class="p">{}</span>
         <span class="nx">flags</span><span class="p">.</span><span class="nx">async</span> <span class="o">?=</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">async</span>
 
-        <span class="nx">@updateDirectives</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="nf">(err, graphChanged) =&gt;</span>
+        <span class="nx">@updateDirectives</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="p">{},</span> <span class="nf">(err, graphChanged) =&gt;</span>
             <span class="k">if</span> <span class="nx">err</span>
                 <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">err</span>
             <span class="nx">callback</span><span class="o">?</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">@depGraph</span><span class="p">,</span> <span class="nx">graphChanged</span>
@@ -65,7 +65,7 @@ provided, we cannot proceed.</p>             </td>             <td class="code">
         <span class="nx">flags</span> <span class="o">?=</span> <span class="p">{}</span>
         <span class="nx">flags</span><span class="p">.</span><span class="nx">async</span> <span class="o">?=</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">async</span>
 
-        <span class="nx">@updateDirectives</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="nf">(err, graphChanged) =&gt;</span>
+        <span class="nx">@updateDirectives</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="p">{},</span> <span class="nf">(err, graphChanged) =&gt;</span>
             <span class="k">if</span> <span class="nx">err</span>
                 <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">err</span>
             <span class="k">try</span>
@@ -92,7 +92,7 @@ provided, we cannot proceed.</p>             </td>             <td class="code">
         <span class="nx">flags</span><span class="p">.</span><span class="nx">async</span> <span class="o">?=</span> <span class="nx">@options</span><span class="p">.</span><span class="nx">async</span>
         <span class="nv">concatenationChanged = </span><span class="kc">true</span>
 
-        <span class="nx">@updateDirectives</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="nf">(err, graphChanged) =&gt;</span></pre></div>             </td>           </tr>                               <tr id="section-5">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-5">&#182;</a>               </div>               <p>fail fast</p>             </td>             <td class="code">               <div class="highlight"><pre>            <span class="k">if</span> <span class="nx">err</span>
+        <span class="nx">@updateDirectives</span> <span class="nx">filePath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="p">{},</span> <span class="nf">(err, graphChanged) =&gt;</span></pre></div>             </td>           </tr>                               <tr id="section-5">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-5">&#182;</a>               </div>               <p>fail fast</p>             </td>             <td class="code">               <div class="highlight"><pre>            <span class="k">if</span> <span class="nx">err</span>
                 <span class="k">if</span> <span class="nx">callback</span> <span class="k">then</span> <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">else</span> <span class="k">throw</span> <span class="nx">err</span>
                 <span class="k">return</span>
 
@@ -278,9 +278,9 @@ sources</p>             </td>             <td class="code">               <div c
                 <span class="nx">@concatCache</span><span class="p">[</span><span class="nx">filePath</span><span class="p">].</span><span class="nv">srcmap = </span><span class="nx">concatenation</span><span class="p">.</span><span class="nx">srcmap</span>
 
             <span class="nx">callback</span><span class="o">?</span> <span class="kc">null</span><span class="p">,</span> <span class="nx">concatenation</span><span class="p">,</span> <span class="nx">concatenationChanged</span>
-            <span class="nx">concatenation</span></pre></div>             </td>           </tr>                               <tr id="section-23">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-23">&#182;</a>               </div>               <h2>Internal methods</h2>             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-24">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-24">&#182;</a>               </div>               <p>Interprets the directives from the given file to update <code>@depGraph</code>.</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">updateDirectives: </span><span class="nf">(filePath, flags, excludes..., callback) -&gt;</span>
-        <span class="k">return</span> <span class="nx">callback</span><span class="p">()</span> <span class="k">if</span> <span class="nx">filePath</span> <span class="k">in</span> <span class="nx">excludes</span>
-        <span class="nx">excludes</span><span class="p">.</span><span class="nx">push</span> <span class="nx">filePath</span>
+            <span class="nx">concatenation</span></pre></div>             </td>           </tr>                               <tr id="section-23">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-23">&#182;</a>               </div>               <h2>Internal methods</h2>             </td>             <td class="code">               <div class="highlight"><pre></pre></div>             </td>           </tr>                               <tr id="section-24">             <td class="docs">               <div class="pilwrap">                 <a class="pilcrow" href="#section-24">&#182;</a>               </div>               <p>Interprets the directives from the given file to update <code>@depGraph</code>.</p>             </td>             <td class="code">               <div class="highlight"><pre>    <span class="nv">updateDirectives: </span><span class="nf">(filePath, flags, excludes, callback) -&gt;</span>
+        <span class="k">return</span> <span class="nx">callback</span><span class="p">()</span> <span class="k">if</span> <span class="nx">excludes</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span>
+        <span class="nx">excludes</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span>
 
         <span class="nv">depList = </span><span class="p">[]</span>
         <span class="nv">graphChanged = </span><span class="kc">false</span>
@@ -293,11 +293,10 @@ sources</p>             </td>             <td class="code">               <div c
                     <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span>
                 <span class="k">unless</span> <span class="nx">depPath</span> <span class="k">in</span> <span class="nx">depList</span>
                     <span class="nx">depList</span><span class="p">.</span><span class="nx">push</span> <span class="nx">depPath</span>
-                <span class="nx">@updateDirectives</span> <span class="nx">depPath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="nx">excludes</span><span class="p">...,</span>
-                    <span class="nf">(err, depChanged) -&gt;</span>
-                        <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
-                        <span class="nx">graphChanged</span> <span class="o">or=</span> <span class="nx">depChanged</span>
-                        <span class="nx">next</span><span class="p">()</span>
+                <span class="nx">@updateDirectives</span> <span class="nx">depPath</span><span class="p">,</span> <span class="nx">flags</span><span class="p">,</span> <span class="nx">excludes</span><span class="p">,</span> <span class="nf">(err, depChanged) -&gt;</span>
+                    <span class="k">return</span> <span class="nx">callback</span> <span class="nx">err</span> <span class="k">if</span> <span class="nx">err</span>
+                    <span class="nx">graphChanged</span> <span class="o">or=</span> <span class="nx">depChanged</span>
+                    <span class="nx">next</span><span class="p">()</span>
             <span class="nv">onComplete: </span><span class="o">=&gt;</span>
                 <span class="k">unless</span> <span class="nx">_</span><span class="p">.</span><span class="nx">isEqual</span> <span class="nx">depList</span> <span class="p">,</span> <span class="nx">@depGraph</span><span class="p">.</span><span class="nx">map</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span>
                     <span class="nx">@depGraph</span><span class="p">.</span><span class="nx">map</span><span class="p">[</span><span class="nx">filePath</span><span class="p">]</span> <span class="o">=</span> <span class="nx">depList</span>

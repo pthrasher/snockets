@@ -65,7 +65,7 @@ class Snockets
         flags ?= {}
         flags.async ?= @options.async
 
-        @updateDirectives filePath, flags, (err, graphChanged) =>
+        @updateDirectives filePath, flags, {}, (err, graphChanged) =>
             if err
                 if callback then return callback err else throw err
             callback? null, @depGraph, graphChanged
@@ -77,7 +77,7 @@ class Snockets
         flags ?= {}
         flags.async ?= @options.async
 
-        @updateDirectives filePath, flags, (err, graphChanged) =>
+        @updateDirectives filePath, flags, {}, (err, graphChanged) =>
             if err
                 if callback then return callback err else throw err
             try
@@ -104,7 +104,7 @@ class Snockets
         flags.async ?= @options.async
         concatenationChanged = true
 
-        @updateDirectives filePath, flags, (err, graphChanged) =>
+        @updateDirectives filePath, flags, {}, (err, graphChanged) =>
             # fail fast
             if err
                 if callback then return callback err else throw err
@@ -341,9 +341,9 @@ class Snockets
   # ## Internal methods
 
   # Interprets the directives from the given file to update `@depGraph`.
-    updateDirectives: (filePath, flags, excludes..., callback) ->
-        return callback() if filePath in excludes
-        excludes.push filePath
+    updateDirectives: (filePath, flags, excludes, callback) ->
+        return callback() if excludes[filePath]
+        excludes[filePath] = 1
 
         depList = []
         graphChanged = false
@@ -356,11 +356,10 @@ class Snockets
                     return callback err
                 unless depPath in depList
                     depList.push depPath
-                @updateDirectives depPath, flags, excludes...,
-                    (err, depChanged) ->
-                        return callback err if err
-                        graphChanged or= depChanged
-                        next()
+                @updateDirectives depPath, flags, excludes, (err, depChanged) ->
+                    return callback err if err
+                    graphChanged or= depChanged
+                    next()
             onComplete: =>
                 unless _.isEqual depList , @depGraph.map[filePath]
                     @depGraph.map[filePath] = depList
