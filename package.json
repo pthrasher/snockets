@@ -1,5 +1,14 @@
 {
-  "author": "Trevor Burnham (http://trevorburnham.com)",
+  "author": {
+    "name": "Trevor Burnham",
+    "url": "http://trevorburnham.com"
+  },
+  "contributors": [
+    {
+      "name": "Philip Thrasher",
+      "url": "http://pthra.sh/"
+    }
+  ],
   "name": "snockets",
   "description": "Sprockets-esque script concatenation for Node",
   "version": "2.0.0",
@@ -8,7 +17,11 @@
     "type": "git",
     "url": "git://github.com/pthrasher/snockets.git"
   },
+  "license": "MIT",
   "main": "lib/snockets.js",
+  "bugs": {
+    "url": "http://github.com/pthrasher/snockets/issues"
+  },
   "dependencies": {
     "dep-graph": "1.1.0",
     "mime": "1.2.2",
