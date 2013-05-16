@@ -30,6 +30,9 @@
     "uglify-js": "~2.2.5",
     "source-map": "~0.1.22"
   },
+  "scripts": {
+    "test": "grunt test"
+  },
   "devDependencies": {
     "grunt-bump": "0.0.2",
     "grunt-contrib-coffee": "~0.7.0",
