@@ -13,7 +13,7 @@ module.exports = (grunt) ->
             compile:
                 src: ['src/*.coffee']
                 options:
-                    output: 'dev-docs/'
+                    output: 'docs/'
 
         jasmine_node:
             projectRoot: "."
