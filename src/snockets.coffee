@@ -103,6 +103,7 @@ module.exports = class Snockets
       # fail fast
       if err
         if callback then return callback err else throw err
+        return
 
       doSrcMap = @options.srcmap
       doMinify = flags.minify
@@ -138,7 +139,7 @@ module.exports = class Snockets
       if not (doSrcMap and doMinify) # not srcmapping, not minifying
         cacheValid = true if hasData
       if not doSrcMap and doMinify # not srcmapping, minifying
-        cacheValid = true if hasMinData
+        cacheValid = if hasMinData then true else false
       if doSrcMap and doMinify # we're srcmapping and minifying
         cacheValid = true if hasSrcMap and hasMinData
 
@@ -295,10 +296,12 @@ module.exports = class Snockets
             concatenation =
               js: catjs
               srcmap: catmaps
-      catch e
-        if callback then return callback e else throw e
+      catch _err
+        throw _err
+        # if callback then return callback _err else throw _err
+        return
 
-      if not (doMinify and doSrcMap)
+      if not (doMinify or doSrcMap)
         @concatCache[filePath].data = new Buffer concatenation
       else if doMinify and not doSrcMap
         @concatCache[filePath].minifiedData = new Buffer concatenation
@@ -607,7 +610,7 @@ minify = (js, useropts = {}) ->
   streamopts = {}
   if opts.srcmap isnt false
 
-    
+
     smopts =
       file: "#{stripExt(outurl)}.min.js"
 
