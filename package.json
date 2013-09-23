@@ -15,7 +15,8 @@
     "underscore": "1.1.7",
     "coffee-script": "~1.6.2",
     "uglify-js": "~2.2.5",
-    "source-map": "~0.1.22"
+    "source-map": "~0.1.22",
+    "graceful-fs": "~2.0.1"
   },
   "devDependencies": {
     "nodeunit": "0.5.4",
