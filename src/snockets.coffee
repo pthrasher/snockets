@@ -5,7 +5,7 @@ DepGraph = require 'dep-graph'
 SourceMap = require 'source-map'
 
 CoffeeScript = require 'coffee-script'
-fs           = require 'fs'
+fs           = require 'graceful-fs'
 path         = require 'path'
 uglify       = require 'uglify-js'
 _            = require 'underscore'
@@ -607,7 +607,7 @@ minify = (js, useropts = {}) ->
   streamopts = {}
   if opts.srcmap isnt false
 
-    
+
     smopts =
       file: "#{stripExt(outurl)}.min.js"
 
