@@ -11,7 +11,7 @@
   "main": "lib/snockets.js",
   "dependencies": {
     "dep-graph": "1.1.0",
-    "mime": "1.2.2",
+    "mime": "2.4.4",
     "underscore": "1.1.7",
     "coffee-script": "~1.6.2",
     "uglify-js": "~2.2.5",
